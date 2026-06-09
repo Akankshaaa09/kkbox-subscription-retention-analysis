@@ -3,6 +3,7 @@
 # Streamlit Dashboard — Dark Analytics Theme
 # Author: Akanksha Nayak
 # ============================================================
+from pathlib import Path
 import gdown
 import os
 
@@ -17,7 +18,7 @@ if not DB_PATH.exists():
         quiet=False
     )
     print("Done!")
-    
+
 import streamlit as st
 import pandas as pd
 import sqlite3
