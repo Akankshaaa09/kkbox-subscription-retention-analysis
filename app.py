@@ -3,7 +3,21 @@
 # Streamlit Dashboard — Dark Analytics Theme
 # Author: Akanksha Nayak
 # ============================================================
+import gdown
+import os
 
+# ── Download db from Google Drive if not present ──
+DB_PATH = Path("data/kkbox.db")
+if not DB_PATH.exists():
+    DB_PATH.parent.mkdir(parents=True, exist_ok=True)
+    print("Downloading database...")
+    gdown.download(
+        "https://drive.google.com/uc?id=1Wqjn5okiLqIZ-P9caXTIVKREM6UFNruv",
+        str(DB_PATH),
+        quiet=False
+    )
+    print("Done!")
+    
 import streamlit as st
 import pandas as pd
 import sqlite3
