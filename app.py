@@ -58,28 +58,48 @@ st.markdown(f"""
   }}
   .stApp {{ background-color: {BG}; }}
 
-  /* Tabs */
+/* Tabs */
   .stTabs [data-baseweb="tab-list"] {{
-      gap: 4px;
+      gap: 8px;
       background: {SURFACE};
-      padding: 6px;
-      border-radius: 12px;
+      padding: 8px;
+      border-radius: 14px;
       border: 1px solid {BORDER};
+      display: flex;
+      width: 100%;
+      margin-bottom: 16px;
+      box-sizing: border-box;
   }}
   .stTabs [data-baseweb="tab"] {{
       font-family: 'Inter', sans-serif;
-      font-size: 13px;
-      font-weight: 500;
+      font-size: 15px;
+      font-weight: 600;
       color: {MUTED};
-      background: transparent;
-      border-radius: 8px;
-      padding: 8px 18px;
-      border: none;
+      background: {SURFACE2};
+      border-radius: 10px;
+      padding: 14px 0px;
+      border: 1px solid {BORDER};
+      flex: 1;
+      text-align: center;
+      letter-spacing: 0.01em;
+      transition: all 0.2s ease;
+      min-width: 0;
   }}
   .stTabs [aria-selected="true"] {{
-      background: {SURFACE2} !important;
+      background: {ACCENT} !important;
+      color: #FFFFFF !important;
+      border: 1px solid {ACCENT} !important;
+      box-shadow: 0 2px 12px rgba(123, 97, 255, 0.4) !important;
+  }}
+  .stTabs [data-baseweb="tab"]:hover {{
       color: {TEXT} !important;
-      border: 1px solid {BORDER} !important;
+      background: {BORDER} !important;
+  }}
+  .stTabs [data-baseweb="tab-highlight"] {{
+      display: none !important;
+  }}
+  .stTabs [data-baseweb="tab-border"] {{
+      display: none !important;
   }}
 
   /* Metrics */
