@@ -13,7 +13,7 @@ if not DB_PATH.exists():
     DB_PATH.parent.mkdir(parents=True, exist_ok=True)
     print("Downloading database...")
     gdown.download(
-        "https://drive.google.com/uc?id=1Wqjn5okiLqIZ-P9caXTIVKREM6UFNruv",
+        "https://drive.google.com/uc?id=1RExff-WGtouE_yMtAWcQR0_hPvYjIpw8",
         str(DB_PATH),
         quiet=False
     )
@@ -35,16 +35,16 @@ st.set_page_config(
 )
 
 # ── Design tokens ──
-BG          = "#0D0D0D"
-SURFACE     = "#161616"
-SURFACE2    = "#1F1F1F"
-BORDER      = "#2A2A2A"
-GREEN       = "#00C48C"
-RED         = "#FF4D4D"
-AMBER       = "#FFB547"
-TEXT        = "#F0F0F0"
-MUTED       = "#888888"
-ACCENT      = "#7B61FF"
+BG       = "#0D0D0D"
+SURFACE  = "#161616"
+SURFACE2 = "#1F1F1F"
+BORDER   = "#2A2A2A"
+GREEN    = "#00C48C"
+RED      = "#FF4D4D"
+AMBER    = "#FFB547"
+TEXT     = "#F0F0F0"
+MUTED    = "#888888"
+ACCENT   = "#7B61FF"
 
 # ── Global CSS ──
 st.markdown(f"""
@@ -58,7 +58,6 @@ st.markdown(f"""
   }}
   .stApp {{ background-color: {BG}; }}
 
-  /* Tabs */
   .stTabs [data-baseweb="tab-list"] {{
       gap: 4px;
       background: {SURFACE};
@@ -82,7 +81,6 @@ st.markdown(f"""
       border: 1px solid {BORDER} !important;
   }}
 
-  /* Metrics */
   div[data-testid="metric-container"] {{
       background: {SURFACE};
       border: 1px solid {BORDER};
@@ -103,10 +101,8 @@ st.markdown(f"""
       font-weight: 700 !important;
   }}
 
-  /* Divider */
   hr {{ border-color: {BORDER} !important; }}
 
-  /* Headers */
   h1, h2, h3 {{
       font-family: 'Space Grotesk', sans-serif !important;
       color: {TEXT} !important;
@@ -114,7 +110,6 @@ st.markdown(f"""
   h1 {{ font-size: 2rem !important; font-weight: 700 !important; }}
   h3 {{ color: {GREEN} !important; }}
 
-  /* Caption */
   .caption-text {{
       font-size: 12px;
       color: {MUTED};
@@ -123,7 +118,6 @@ st.markdown(f"""
       margin-bottom: 12px;
   }}
 
-  /* Insight cards */
   .insight-card {{
       background: {SURFACE};
       border: 1px solid {BORDER};
@@ -175,24 +169,12 @@ def styled_chart(fig):
         title_font_family="Space Grotesk",
         title_font_size=14,
         margin=dict(t=40, b=20, l=10, r=10),
-        xaxis=dict(
-            gridcolor=BORDER,
-            linecolor=BORDER,
-            tickcolor=BORDER,
-            tickfont_color=MUTED
-        ),
-        yaxis=dict(
-            gridcolor=BORDER,
-            linecolor=BORDER,
-            tickcolor=BORDER,
-            tickfont_color=MUTED
-        ),
-        legend=dict(
-            bgcolor=SURFACE2,
-            bordercolor=BORDER,
-            borderwidth=1,
-            font_color=TEXT
-        )
+        xaxis=dict(gridcolor=BORDER, linecolor=BORDER,
+                   tickcolor=BORDER, tickfont_color=MUTED),
+        yaxis=dict(gridcolor=BORDER, linecolor=BORDER,
+                   tickcolor=BORDER, tickfont_color=MUTED),
+        legend=dict(bgcolor=SURFACE2, bordercolor=BORDER,
+                    borderwidth=1, font_color=TEXT)
     )
     return fig
 
@@ -271,6 +253,10 @@ QUERY_REGISTRATION = """
     ORDER BY churn_rate_pct DESC
 """
 
+QUERY_ROI = """
+    SELECT * FROM roi_summary LIMIT 1
+"""
+
 # ════════════════════════════════════════════════════════════
 # HEADER
 # ════════════════════════════════════════════════════════════
@@ -293,7 +279,7 @@ st.markdown(f"""
     risk scoring.<br>
     <span style='color:{ACCENT}'>SQL · Python · XGBoost · SHAP · Streamlit</span>
     &nbsp;·&nbsp;
-    <span style='color:{GREEN}'>Model AUC: 0.947</span>
+    <span style='color:{GREEN}'>Model AUC: 0.9876 (5-fold CV: 0.9875 ± 0.0003)</span>
   </p>
 </div>
 """, unsafe_allow_html=True)
@@ -317,14 +303,15 @@ st.divider()
 # TABS
 # ════════════════════════════════════════════════════════════
 
-tab1, tab2, tab3, tab4 = st.tabs([
+tab1, tab2, tab3, tab4, tab5 = st.tabs([
     "📊  Cohort Retention",
     "🔍  Churn Patterns",
     "🤖  Risk Scoring",
+    "🧪  Model Validation",
     "💡  Recommendations"
 ])
 
-# ── TAB 1 ──
+# ── TAB 1: Cohort Retention ──
 with tab1:
     st.markdown(f"<div class='caption-text'>Each bar = one monthly user cohort · Colour scale: red = lower retention → green = higher retention</div>",
                 unsafe_allow_html=True)
@@ -349,10 +336,10 @@ with tab1:
     st.plotly_chart(styled_chart(fig), use_container_width=True)
 
     m1, m2 = st.columns(2)
-    m1.metric("Avg Retention Rate",  f"{cohort_df['retention_rate'].mean():.1f}%")
-    m2.metric("Cohorts Analysed",    f"{len(cohort_df)}")
+    m1.metric("Avg Retention Rate", f"{cohort_df['retention_rate'].mean():.1f}%")
+    m2.metric("Cohorts Analysed",   f"{len(cohort_df)}")
 
-# ── TAB 2 ──
+# ── TAB 2: Churn Patterns ──
 with tab2:
     st.markdown(f"<div class='caption-text'>Churn at KKBox is a payments problem, not an engagement problem — users listen just as much before they leave.</div>",
                 unsafe_allow_html=True)
@@ -425,7 +412,7 @@ with tab2:
     st.markdown(f"<div class='caption-text'>Certain acquisition channels produce 2–3× higher churn — targeting strategy needs revision.</div>",
                 unsafe_allow_html=True)
 
-# ── TAB 3 ──
+# ── TAB 3: Risk Scoring ──
 with tab3:
     st.markdown(f"<div class='caption-text'>XGBoost model scores every user by churn probability. Three tiers guide where to focus retention spend.</div>",
                 unsafe_allow_html=True)
@@ -448,8 +435,7 @@ with tab3:
               <div style='font-size:28px; font-weight:700; font-family:Space Grotesk;
                           color:{TEXT}; margin-bottom:12px;'>
                 {int(row['user_count']):,}
-                <span style='font-size:13px; font-weight:400;
-                             color:{MUTED}'>users</span>
+                <span style='font-size:13px; font-weight:400; color:{MUTED}'>users</span>
               </div>
               <div style='font-size:13px; color:{MUTED}; line-height:1.8'>
                 Avg churn prob: <b style='color:{color}'>{row['avg_churn_prob_pct']}%</b><br>
@@ -489,35 +475,126 @@ with tab3:
                            yaxis_title="TWD", showlegend=False)
         st.plotly_chart(styled_chart(fig6), use_container_width=True)
 
-# ── TAB 4 ──
+# ── TAB 4: Model Validation ──
 with tab4:
-    st.markdown(f"<div class='caption-text'>Three prioritised interventions — ranked by revenue impact and feasibility.</div>",
+    st.markdown(f"<div class='caption-text'>Model selection, cross-validation, and threshold analysis — the evidence behind AUC 0.9876.</div>",
                 unsafe_allow_html=True)
 
+    mv1, mv2 = st.columns(2)
+
+    with mv1:
+        st.markdown(f"<p style='font-size:13px;font-weight:600;color:{TEXT}'>Baseline vs XGBoost</p>",
+                    unsafe_allow_html=True)
+        st.image(str(ASSETS_PATH / "model_comparison.png"), use_column_width=True)
+        st.markdown(f"<div class='caption-text'>Logistic Regression baseline confirms XGBoost's non-linear approach is justified for this dataset.</div>",
+                    unsafe_allow_html=True)
+
+    with mv2:
+        st.markdown(f"<p style='font-size:13px;font-weight:600;color:{TEXT}'>5-Fold Cross-Validation — AUC Stability</p>",
+                    unsafe_allow_html=True)
+        st.image(str(ASSETS_PATH / "cross_validation.png"), use_column_width=True)
+        st.markdown(f"<div class='caption-text'>Mean AUC 0.9875, Std 0.0003 across 5 folds — the score is stable and not a lucky split.</div>",
+                    unsafe_allow_html=True)
+
+    st.divider()
+
+    st.markdown(f"<p style='font-size:13px;font-weight:600;color:{TEXT}'>Threshold Optimisation</p>",
+                unsafe_allow_html=True)
+    st.image(str(ASSETS_PATH / "threshold_analysis.png"), use_column_width=True)
+    st.markdown(f"<div class='caption-text'>Default 0.5 threshold (F1: 0.729) vs optimal 0.85 threshold (F1: 0.849). For churn, missing a churner costs more than a false alarm.</div>",
+                unsafe_allow_html=True)
+
+    st.divider()
+
+    sh1, sh2 = st.columns(2)
+    with sh1:
+        st.markdown(f"<p style='font-size:13px;font-weight:600;color:{TEXT}'>SHAP Beeswarm — Direction and Magnitude</p>",
+                    unsafe_allow_html=True)
+        st.image(str(ASSETS_PATH / "shap_beeswarm.png"), use_column_width=True)
+        st.markdown(f"<div class='caption-text'>Each dot = one user. Red = high feature value. Right = pushes toward churn. Auto-renew OFF dominates.</div>",
+                    unsafe_allow_html=True)
+
+    with sh2:
+        st.markdown(f"<p style='font-size:13px;font-weight:600;color:{TEXT}'>SHAP Dependence — Auto-Renew Deep Dive</p>",
+                    unsafe_allow_html=True)
+        st.image(str(ASSETS_PATH / "shap_dependence_autorenew.png"), use_column_width=True)
+        st.markdown(f"<div class='caption-text'>Auto-renew OFF pushes churn probability up sharply — the most actionable signal in the entire model.</div>",
+                    unsafe_allow_html=True)
+
+# ── TAB 5: Recommendations ──
+with tab5:
+    st.markdown(f"<div class='caption-text'>Three prioritised interventions ranked by revenue impact and feasibility.</div>",
+                unsafe_allow_html=True)
+
+    # ── ROI Banner ──
+    roi = run_query(QUERY_ROI).iloc[0]
+
+    st.markdown(f"""
+    <div style='background:{SURFACE}; border:1px solid {BORDER};
+    border-top: 3px solid {GREEN};
+    border-radius:12px; padding:24px 28px; margin-bottom:24px;'>
+        <div style='font-size:11px; font-weight:600; letter-spacing:0.12em;
+        text-transform:uppercase; color:{GREEN}; margin-bottom:10px;'>
+        BUSINESS CASE — INTERVENTION ROI
+        </div>
+        <p style='font-size:14px; color:{TEXT}; line-height:1.8; margin:0'>
+        Targeting <b style='color:{GREEN}'>{int(roi['n_high_risk']):,} high-risk users</b>
+        with a 10% auto-renew incentive costs
+        <b style='color:{TEXT}'>TWD {roi['cost_of_campaign']:,.0f}</b>
+        and protects an estimated
+        <b style='color:{GREEN}'>TWD {roi['revenue_saved']:,.0f}</b> in revenue —
+        a <b style='color:{GREEN}'>{roi['roi_ratio']}x return</b> on retention spend.
+        </p>
+        <p style='font-size:12px; color:{MUTED}; margin-top:8px; margin-bottom:0'>
+        Assumes 30% conversion rate (conservative) based on 8× churn rate difference
+        between auto-renew OFF (30.6%) and auto-renew ON (3.8%) users.
+        </p>
+    </div>
+    """, unsafe_allow_html=True)
+
+    # ── ROI KPI row ──
+    rc1, rc2, rc3, rc4 = st.columns(4)
+    rc1.metric("High-Risk Users",     f"{int(roi['n_high_risk']):,}")
+    rc2.metric("Revenue at Risk",     f"TWD {roi['revenue_at_risk']:,.0f}")
+    rc3.metric("Campaign Cost",       f"TWD {roi['cost_of_campaign']:,.0f}")
+    rc4.metric("Est. Revenue Saved",  f"TWD {roi['revenue_saved']:,.0f}",
+               delta=f"{roi['roi_ratio']}x ROI")
+
+    st.divider()
+
+    # ── Recommendation cards ──
     recs = [
         {
-            "num": "01",
-            "color": GREEN,
-            "label": "HIGHEST IMPACT",
-            "title": "🔄 Incentivise Auto-Renew — Don't Force It",
-            "finding": "Auto-renew OFF users churn at 30.6% vs 3.8% for auto-renew ON — an 8× gap.",
-            "action": "Offer a permanent 10% discount for enabling auto-renew. Cost of discount is far lower than cost of reacquisition. Target the 17,769 high-risk users first.",
+            "num"    : "01",
+            "color"  : GREEN,
+            "label"  : "HIGHEST IMPACT",
+            "title"  : "🔄 Incentivise Auto-Renew — Don't Force It",
+            "finding": "Auto-renew OFF users churn at 30.6% vs 3.8% for auto-renew ON "
+                       "— an 8× gap, the single strongest signal in the dataset.",
+            "action" : f"Offer a permanent 10% discount for enabling auto-renew. "
+                       f"Targeting the {int(roi['n_high_risk']):,} high-risk users "
+                       f"costs TWD {roi['cost_of_campaign']:,.0f} and protects "
+                       f"TWD {roi['revenue_saved']:,.0f} — a {roi['roi_ratio']}x return.",
         },
         {
-            "num": "02",
-            "color": AMBER,
-            "label": "REVENUE PROTECTION",
-            "title": "💰 Revisit Long-Plan Discount Strategy",
-            "finding": "Users on longer discounted plans churn more. Churned users paid TWD 383 on average vs TWD 129 for retained users.",
-            "action": "Stop using heavy discounts on long plans as an acquisition tool — you're buying disloyal customers. Redirect budget to loyalty rewards for existing monthly subscribers.",
+            "num"    : "02",
+            "color"  : AMBER,
+            "label"  : "REVENUE PROTECTION",
+            "title"  : "💰 Revisit Long-Plan Discount Strategy",
+            "finding": "Churned users paid TWD 383 on average vs TWD 129 for retained "
+                       "users. Longer discounted plans attract lower-loyalty subscribers.",
+            "action" : "Stop using heavy discounts on long plans as an acquisition tool. "
+                       "Redirect budget to loyalty rewards for existing monthly subscribers.",
         },
         {
-            "num": "03",
-            "color": ACCENT,
-            "label": "ACQUISITION QUALITY",
-            "title": "📱 Double Down on High-Retention Channels",
-            "finding": "Churn rate varies significantly by registration channel. Certain channels produce users with 2–3× higher churn rates.",
-            "action": "Audit acquisition spend by channel. Cut budget from high-churn channels, reallocate to channels producing loyal users. Quality over volume.",
+            "num"    : "03",
+            "color"  : ACCENT,
+            "label"  : "ACQUISITION QUALITY",
+            "title"  : "📱 Double Down on High-Retention Channels",
+            "finding": "Churn rate varies significantly by registration channel. "
+                       "Certain channels produce users with 2–3× higher churn rates.",
+            "action" : "Audit acquisition spend by channel. Cut budget from high-churn "
+                       "channels and reallocate to channels producing loyal users.",
         },
     ]
 
@@ -538,12 +615,10 @@ with tab4:
             </div>
           </div>
           <div style='margin-left:52px'>
-            <p style='font-size:13px; color:{MUTED}; margin:0 0 6px 0;
-                      line-height:1.6'>
+            <p style='font-size:13px; color:{MUTED}; margin:0 0 6px 0; line-height:1.6'>
               <b style='color:{TEXT}'>Finding:</b> {rec["finding"]}
             </p>
-            <p style='font-size:13px; color:{MUTED}; margin:0;
-                      line-height:1.6'>
+            <p style='font-size:13px; color:{MUTED}; margin:0; line-height:1.6'>
               <b style='color:{TEXT}'>Action:</b> {rec["action"]}
             </p>
           </div>
@@ -554,7 +629,7 @@ with tab4:
     st.markdown(f"""
     <p style='font-size:12px; color:{MUTED}; text-align:center'>
     Analysis based on WSDM KKBox Churn Prediction Dataset &nbsp;·&nbsp;
-    Model AUC: 0.947 &nbsp;·&nbsp;
+    Model AUC: 0.9876 (5-fold CV: 0.9875 ± 0.0003) &nbsp;·&nbsp;
     Built by Akanksha Nayak
     </p>
     """, unsafe_allow_html=True)
