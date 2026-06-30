@@ -1,6 +1,6 @@
 # ============================================================
 # KKBox Subscription Retention & Churn Analysis
-# Streamlit Dashboard — Final Version
+# Streamlit Dashboard — Locked Final Version
 # Author: Akanksha Nayak
 # ============================================================
 from pathlib import Path
@@ -27,11 +27,9 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
-# ── Tokens ──
 BG      = "#0C0C0E"
 CARD    = "#13131A"
 CARD2   = "#1A1A24"
-CARD3   = "#20202C"
 BORDER  = "#2C2C3E"
 GREEN   = "#00C48C"
 RED     = "#FF5C5C"
@@ -42,6 +40,9 @@ BODY    = "#C8C8D8"
 MUTED   = "#7070A0"
 ACCENT  = "#9B7FFF"
 WHITE   = "#FFFFFF"
+
+CHART_H    = 360
+CARD_IMG_H = 340
 
 st.markdown(f"""
 <style>
@@ -55,160 +56,105 @@ st.markdown(f"""
   .stApp {{ background-color: {BG}; }}
   .block-container {{ padding-top: 2rem !important; max-width: 1280px; }}
 
-  /* ── Tabs ── */
   .stTabs [data-baseweb="tab-list"] {{
-      gap: 0;
-      background: {CARD};
-      padding: 0 8px;
-      border-radius: 14px;
-      border: 1px solid {BORDER};
+      gap: 0; background: {CARD}; padding: 0 8px;
+      border-radius: 14px; border: 1px solid {BORDER};
       margin-bottom: 36px;
   }}
   .stTabs [data-baseweb="tab"] {{
       font-family: 'Sora', sans-serif !important;
-      font-size: 14px;
-      font-weight: 500;
-      color: {MUTED};
-      background: transparent;
-      padding: 14px 26px;
-      border: none;
-      border-radius: 10px;
-      margin: 4px 2px;
+      font-size: 14px; font-weight: 500; color: {MUTED};
+      background: transparent; padding: 14px 26px;
+      border: none; border-radius: 10px; margin: 4px 2px;
   }}
   .stTabs [aria-selected="true"] {{
-      color: {WHITE} !important;
-      background: {CARD2} !important;
-      font-weight: 600 !important;
-      border: 1px solid {BORDER} !important;
+      color: {WHITE} !important; background: {CARD2} !important;
+      font-weight: 600 !important; border: 1px solid {BORDER} !important;
   }}
   .stTabs [data-baseweb="tab"]:hover {{ color: {TEXT} !important; }}
 
-  /* ── Metrics ── */
+  .gtitle {{ display: none !important; }}
+  .js-plotly-plot .gtitle {{ display: none !important; }}
+
   div[data-testid="metric-container"] {{
-      background: {CARD};
-      border: 1px solid {BORDER};
-      border-radius: 12px;
-      padding: 22px 24px;
+      background: {CARD}; border: 1px solid {BORDER};
+      border-radius: 12px; padding: 22px 24px;
   }}
   div[data-testid="metric-container"] label {{
-      color: {MUTED} !important;
-      font-size: 11px !important;
-      font-weight: 600 !important;
-      text-transform: uppercase;
+      color: {MUTED} !important; font-size: 11px !important;
+      font-weight: 600 !important; text-transform: uppercase;
       letter-spacing: 0.12em;
   }}
   div[data-testid="metric-container"] div[data-testid="stMetricValue"] {{
-      color: {WHITE} !important;
-      font-family: 'Sora', sans-serif !important;
-      font-size: 28px !important;
-      font-weight: 700 !important;
+      color: {WHITE} !important; font-family: 'Sora', sans-serif !important;
+      font-size: 28px !important; font-weight: 700 !important;
   }}
-  div[data-testid="stMetricDelta"] span {{
-      font-size: 13px !important;
-  }}
+  div[data-testid="stMetricDelta"] span {{ font-size: 13px !important; }}
 
   hr {{ border-color: {BORDER} !important; margin: 32px 0 !important; }}
 
-  /* ── Type helpers ── */
   .eyebrow {{
-      font-size: 11px; font-weight: 600;
-      text-transform: uppercase; letter-spacing: 0.15em;
-      color: {MUTED}; margin-bottom: 10px;
+      font-size: 11px; font-weight: 600; text-transform: uppercase;
+      letter-spacing: 0.15em; color: {MUTED}; margin-bottom: 10px;
   }}
   .display {{
-      font-family: 'Playfair Display', serif;
-      font-size: 2.6rem; font-weight: 700;
-      color: {WHITE}; line-height: 1.15; margin-bottom: 18px;
+      font-family: 'Playfair Display', serif; font-size: 2.6rem;
+      font-weight: 700; color: {WHITE}; line-height: 1.15;
+      margin-bottom: 18px;
   }}
-  .lead {{
-      font-size: 15px; color: {BODY};
-      line-height: 1.8; max-width: 660px;
-  }}
+  .lead {{ font-size: 15px; color: {BODY}; line-height: 1.8; max-width: 660px; }}
   .pill {{
-      display: inline-block;
-      background: {CARD2}; border: 1px solid {BORDER};
-      border-radius: 20px; padding: 5px 16px;
-      font-size: 12px; font-weight: 600;
-      color: {BODY}; margin: 3px 2px;
+      display: inline-block; background: {CARD2}; border: 1px solid {BORDER};
+      border-radius: 20px; padding: 5px 16px; font-size: 12px;
+      font-weight: 600; color: {BODY}; margin: 3px 2px;
   }}
-  /* Chart card */
-  .chart-card {{
-      background: {CARD};
-      border: 1px solid {BORDER};
-      border-radius: 14px;
-      padding: 24px 24px 16px;
-      margin-bottom: 4px;
+
+  .viz-card {{
+      background: {CARD}; border: 1px solid {BORDER};
+      border-radius: 14px; overflow: hidden;
   }}
-  .chart-hed {{
-      font-size: 17px; font-weight: 700;
-      color: {WHITE}; line-height: 1.4;
-      margin-bottom: 8px;
+  .viz-card-header {{ padding: 20px 22px 6px; }}
+  .viz-card-tag {{
+      display: block; font-size: 11px; font-weight: 700;
+      text-transform: uppercase; letter-spacing: 0.12em; margin-bottom: 8px;
   }}
-  .chart-dek {{
-      font-size: 14px; color: {BODY};
-      line-height: 1.75; margin-bottom: 18px;
+  .viz-card-hed {{ font-size: 16px; font-weight: 700; color: {WHITE}; line-height: 1.4; }}
+  .viz-card-body {{
+      display: flex; align-items: center; justify-content: center;
+      padding: 12px 22px; min-height: {CARD_IMG_H}px;
   }}
-  /* Insight box */
+  .viz-card-body.light {{
+      background: #F5F5F7; margin: 4px 22px;
+      border-radius: 10px; padding: 14px;
+  }}
+  .viz-card-body img {{
+      max-height: {CARD_IMG_H - 28}px; width: auto !important;
+      max-width: 100%; object-fit: contain;
+  }}
+  .viz-card-cap {{
+      font-size: 13px; color: {BODY}; line-height: 1.7;
+      padding: 14px 22px 20px; border-top: 1px solid {BORDER}; margin-top: 10px;
+  }}
+
   .insight {{
       background: {CARD2}; border: 1px solid {BORDER};
-      border-left: 3px solid {GREEN};
-      border-radius: 0 12px 12px 0;
-      padding: 18px 22px; margin: 20px 0;
-      font-size: 14px; color: {BODY}; line-height: 1.8;
+      border-left: 3px solid {GREEN}; border-radius: 0 12px 12px 0;
+      padding: 18px 22px; margin: 20px 0; font-size: 14px;
+      color: {BODY}; line-height: 1.8;
   }}
   .insight b {{ color: {WHITE}; }}
   .insight-amber {{ border-left-color: {AMBER}; }}
-  .insight-blue  {{ border-left-color: {BLUE}; }}
-  /* Image card — dark with label */
-  .img-card {{
-      background: {CARD};
-      border: 1px solid {BORDER};
-      border-radius: 14px;
-      overflow: hidden;
-      margin-bottom: 4px;
-  }}
-  .img-card-label {{
-      font-size: 13px; font-weight: 700;
-      text-transform: uppercase; letter-spacing: 0.12em;
-      padding: 14px 20px;
-      border-bottom: 1px solid {BORDER};
-  }}
-  .img-card-inner {{
-      background: #F5F5F7;
-      padding: 16px;
-      max-height: 380px;
-      overflow: hidden;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-  }}
-  .img-card-inner img {{
-      max-height: 350px;
-      width: auto !important;
-      max-width: 100%;
-      object-fit: contain;
-  }}
-  .img-cap {{
-      font-size: 14px; color: {BODY};
-      line-height: 1.75; padding: 16px 20px 18px;
-      border-top: 1px solid {BORDER};
-      margin-top: 4px;
-  }}
-  /* Stat row */
+
   .stat-row {{
-      display: grid;
-      grid-template-columns: repeat(4,1fr);
+      display: grid; grid-template-columns: repeat(4,1fr);
       gap: 20px; margin-top: 28px;
   }}
   .stat-item {{ border-left: 3px solid; padding-left: 16px; }}
   .stat-label {{
-      font-size: 11px; font-weight: 600;
-      text-transform: uppercase; letter-spacing: 0.1em;
-      color: {MUTED}; margin-bottom: 4px;
+      font-size: 11px; font-weight: 600; text-transform: uppercase;
+      letter-spacing: 0.1em; color: {MUTED}; margin-bottom: 4px;
   }}
-  .stat-value {{
-      font-size: 26px; font-weight: 700; color: {WHITE};
-  }}
+  .stat-value {{ font-size: 26px; font-weight: 700; color: {WHITE}; }}
 </style>
 """, unsafe_allow_html=True)
 
@@ -223,12 +169,12 @@ def get_conn():
 def q(sql):
     return pd.read_sql(sql, get_conn())
 
-def C(fig, h=400):
+def style_chart(fig, h=CHART_H):
     fig.update_layout(
         height=h,
         plot_bgcolor=CARD2, paper_bgcolor=CARD,
         font=dict(color=BODY, family="Sora", size=12),
-        margin=dict(t=8, b=8, l=8, r=8),
+        margin=dict(t=10, b=8, l=8, r=8),
         xaxis=dict(gridcolor=BORDER, linecolor=BORDER,
                    tickcolor=BORDER, tickfont=dict(color=BODY, size=11)),
         yaxis=dict(gridcolor=BORDER, linecolor=BORDER,
@@ -236,35 +182,36 @@ def C(fig, h=400):
         legend=dict(bgcolor=CARD2, bordercolor=BORDER,
                     font=dict(color=BODY, size=12))
     )
+    if "title" in fig.layout:
+        fig.layout.pop("title")
     return fig
 
-def chart_card(hed, dek, fig, h=380):
+def chart_card(tag, tag_color, hed, dek, fig, h=CHART_H):
     st.markdown(f"""
-    <div class='chart-card'>
-      <div class='chart-hed'>{hed}</div>
-      <div class='chart-dek'>{dek}</div>
-    </div>
-    """, unsafe_allow_html=True)
-    st.plotly_chart(C(fig, h), use_container_width=True)
-
-def img_card(label, label_color, path, caption):
-    st.markdown(f"""
-    <div class='img-card'>
-      <div class='img-card-label' style='color:{label_color}'>
-        {label}
+    <div class='viz-card'>
+      <div class='viz-card-header'>
+        <span class='viz-card-tag' style='color:{tag_color}'>{tag}</span>
+        <div class='viz-card-hed'>{hed}</div>
       </div>
-      <div class='img-card-inner'>
     """, unsafe_allow_html=True)
-    st.image(str(path), use_column_width=True)
-    st.markdown(f"""
-      </div>
-      <div class='img-cap'>{caption}</div>
-    </div>
-    """, unsafe_allow_html=True)
+    st.plotly_chart(style_chart(fig, h), use_container_width=True,
+                     config={'displayModeBar': False})
+    st.markdown(f"<div class='viz-card-cap'>{dek}</div></div>",
+                unsafe_allow_html=True)
 
-# ════════════════════════════════════════════
-# DATA
-# ════════════════════════════════════════════
+def img_card(tag, tag_color, hed, path, caption):
+    st.markdown(f"""
+    <div class='viz-card'>
+      <div class='viz-card-header'>
+        <span class='viz-card-tag' style='color:{tag_color}'>{tag}</span>
+        <div class='viz-card-hed'>{hed}</div>
+      </div>
+      <div class='viz-card-body light'>
+    """, unsafe_allow_html=True)
+    st.image(str(path), width=540)
+    st.markdown(f"</div><div class='viz-card-cap'>{caption}</div></div>",
+                unsafe_allow_html=True)
+
 ov      = q("SELECT COUNT(*) total, ROUND(AVG(is_churn)*100,2) churn, ROUND(AVG(CASE WHEN is_churn=0 THEN actual_amount_paid END),2) rev_ret, ROUND(AVG(CASE WHEN is_churn=1 THEN actual_amount_paid END),2) rev_ch FROM users").iloc[0]
 cohort  = q("SELECT cohort, cohort_size, retained, retention_rate FROM cohort_retention WHERE cohort>='2015-01' ORDER BY cohort")
 auto_df = q("SELECT CASE WHEN is_auto_renew=1 THEN 'Auto-renew ON' ELSE 'Auto-renew OFF' END status, COUNT(*) users, ROUND(AVG(is_churn)*100,2) churn_pct FROM users WHERE is_auto_renew IS NOT NULL GROUP BY is_auto_renew ORDER BY is_auto_renew DESC")
@@ -273,9 +220,6 @@ reg_df  = q("SELECT registered_via, COUNT(*) users, ROUND(AVG(is_churn)*100,2) c
 risk_df = q("SELECT risk_tier, COUNT(*) users, ROUND(AVG(churn_probability)*100,1) avg_prob, ROUND(SUM(churn_probability*plan_list_price),0) rev_at_risk FROM risk_scores GROUP BY risk_tier ORDER BY avg_prob DESC")
 roi     = q("SELECT * FROM roi_summary LIMIT 1").iloc[0]
 
-# ════════════════════════════════════════════
-# HERO
-# ════════════════════════════════════════════
 st.markdown(f"""
 <div style='background:{CARD};border:1px solid {BORDER};border-radius:16px;
             padding:44px 48px 40px;margin-bottom:20px'>
@@ -320,33 +264,26 @@ st.markdown(f"""
   <b style='color:{RED}'>3× more</b> than retained users
   (TWD {ov['rev_ch']:,.0f} vs TWD {ov['rev_ret']:,.0f}).
   Users without auto-renew churn at <b style='color:{RED}'>30.6%</b>
-  vs <b style='color:{GREEN}'>3.8%</b> with auto-renew on —
-  an 8× gap. <b>This is a payments and subscription management problem,
+  vs <b style='color:{GREEN}'>3.8%</b> with auto-renew on — an 8× gap.
+  <b>This is a payments and subscription management problem,
   not an engagement problem.</b>
 </div>
 """, unsafe_allow_html=True)
 
-# ════════════════════════════════════════════
-# TABS
-# ════════════════════════════════════════════
 tab1, tab2, tab3, tab4, tab5 = st.tabs([
-    "📊  Cohort Retention",
-    "🔍  Churn Drivers",
-    "🎯  Risk Scoring",
-    "🧪  Model Validation",
-    "💡  Recommendations",
+    "📊  Cohort Retention", "🔍  Churn Drivers", "🎯  Risk Scoring",
+    "🧪  Model Validation", "💡  Recommendations",
 ])
 
-# ── TAB 1 ────────────────────────────────────
 with tab1:
     avg_r = cohort['retention_rate'].mean()
     best  = cohort.loc[cohort['retention_rate'].idxmax()]
 
     st.markdown(f"""
-    <div class='chart-hed' style='font-size:18px;margin-bottom:6px'>
+    <div class='viz-card-hed' style='font-size:18px;margin-bottom:8px'>
       Retention is stable — older cohorts retain slightly better
     </div>
-    <div class='chart-dek' style='font-size:14px'>
+    <div style='font-size:14px;color:{BODY};line-height:1.8;margin-bottom:20px'>
       Each row = one month of new signups. Colour shows whether that cohort
       retained above or below the {avg_r:.1f}% average.
       Split into two panels so every cohort is readable at a glance.
@@ -361,20 +298,20 @@ with tab1:
                    color="retention_rate",
                    color_continuous_scale=[[0,RED],[0.5,AMBER],[1,GREEN]],
                    text=df_s['retention_rate'].apply(lambda x: f"{x:.1f}%"),
-                   labels={"retention_rate":"Retention (%)","cohort":""},
-                   height=500)
-        f.update_traces(textposition='outside',
-                        textfont=dict(size=11, color=WHITE))
-        f.update_layout(coloraxis_showscale=False,
-                        xaxis_range=[80,103],
+                   labels={"retention_rate":"Retention (%)","cohort":""})
+        f.update_traces(textposition='outside', textfont=dict(size=11, color=WHITE))
+        f.update_layout(coloraxis_showscale=False, xaxis_range=[80,103],
                         yaxis={'categoryorder':'category ascending'})
-        return C(f, 500)
+        return f
 
     with c1:
-        st.plotly_chart(cohort_fig(cohort.iloc[mid:]), use_container_width=True)
+        chart_card("RECENT", "#999", "Last 13 months",
+                   "More recent signup cohorts.", cohort_fig(cohort.iloc[mid:]), 480)
     with c2:
-        st.plotly_chart(cohort_fig(cohort.iloc[:mid]), use_container_width=True)
+        chart_card("EARLIER", "#999", "Earlier cohorts",
+                   "Jan 2015 through the midpoint.", cohort_fig(cohort.iloc[:mid]), 480)
 
+    st.write("")
     m1, m2, m3 = st.columns(3)
     m1.metric("Average Retention",  f"{avg_r:.1f}%")
     m2.metric("Best Cohort", str(best['cohort']), f"{best['retention_rate']:.1f}%")
@@ -389,7 +326,6 @@ with tab1:
     </div>
     """, unsafe_allow_html=True)
 
-# ── TAB 2 ────────────────────────────────────
 with tab2:
     st.markdown(f"""
     <div class='insight insight-amber' style='margin-bottom:28px'>
@@ -401,79 +337,63 @@ with tab2:
     """, unsafe_allow_html=True)
 
     col1, col2 = st.columns(2)
-
     with col1:
-        auto_fig = px.bar(auto_df, x="status", y="churn_pct",
-                    color="status",
+        auto_fig = px.bar(auto_df, x="status", y="churn_pct", color="status",
                     color_discrete_map={"Auto-renew ON":GREEN,"Auto-renew OFF":RED},
                     text=auto_df['churn_pct'].apply(lambda x: f"{x}%"),
                     labels={"churn_pct":"Churn Rate (%)","status":""})
         auto_fig.update_traces(textposition='outside',
-                         textfont=dict(size=17, color=WHITE), width=0.45)
+                         textfont=dict(size=16, color=WHITE), width=0.45)
         auto_fig.update_layout(showlegend=False, yaxis_range=[0,38])
-        chart_card(
-            "Auto-renew OFF users churn at 8× the rate of auto-renew ON",
-            "The single strongest predictor in the model. Users who opted out of auto-renewal are far more likely to churn — regardless of how much they listen.",
-            auto_fig, 360
-        )
+        chart_card("STRONGEST SIGNAL", RED,
+            "Auto-renew OFF users churn at 8× the rate of ON",
+            "The single strongest predictor in the model. Users who opted out churn far more — regardless of how much they listen.",
+            auto_fig)
 
     with col2:
         plan_df['label'] = plan_df['payment_plan_days'].apply(
             lambda x: {7:"7 days",30:"30 days",90:"3 months",
                        180:"6 months",365:"1 year"}.get(int(x),f"{int(x)}d"))
-        plan_fig = px.bar(plan_df, x="label", y="churn_pct",
-                    color="churn_pct",
+        plan_fig = px.bar(plan_df, x="label", y="churn_pct", color="churn_pct",
                     color_continuous_scale=[[0,GREEN],[0.5,AMBER],[1,RED]],
                     text=plan_df['churn_pct'].apply(lambda x: f"{x}%"),
                     labels={"churn_pct":"Churn Rate (%)","label":""})
-        plan_fig.update_traces(textposition='outside',
-                         textfont=dict(size=15, color=WHITE))
+        plan_fig.update_traces(textposition='outside', textfont=dict(size=14, color=WHITE))
         plan_fig.update_layout(coloraxis_showscale=False)
-        chart_card(
+        chart_card("PLAN STRUCTURE", AMBER,
             "Longer discounted plans attract less loyal subscribers",
-            "Counter-intuitive but consistent: users on longer plans churn more. These are likely acquired via heavy discounts — low entry price, low commitment.",
-            plan_fig, 360
-        )
+            "Counter-intuitive but consistent: users on longer plans churn more. Likely acquired via heavy discounts — low entry price, low commitment.",
+            plan_fig)
 
-    st.divider()
-
-    col3, col4 = st.columns([3,2])
-
+    st.write("")
+    col3, col4 = st.columns(2)
     with col3:
-        img_card(
-            "SHAP Feature Importance — What the Model Learned",
-            GREEN,
+        img_card("MODEL EXPLAINABILITY", GREEN,
+            "Payment features dominate, listening features don't",
             ASSETS_PATH/"shap_importance.png",
             "Payment method, plan price, and registration channel dominate. "
-            "Listening metrics (total_secs, completion_rate, avg_secs_per_day) "
-            "are near the bottom — the engagement hypothesis is wrong."
-        )
-
+            "Listening metrics are near the bottom — confirming churn is not an engagement problem.")
     with col4:
         reg_df['ch'] = reg_df['registered_via'].apply(lambda x: f"Ch {int(x)}")
-        reg_fig = px.bar(reg_df, x="ch", y="churn_pct",
-                    color="churn_pct",
+        reg_fig = px.bar(reg_df, x="ch", y="churn_pct", color="churn_pct",
                     color_continuous_scale=[[0,GREEN],[0.5,AMBER],[1,RED]],
                     text=reg_df['churn_pct'].apply(lambda x: f"{x:.1f}%"),
                     labels={"churn_pct":"Churn (%)","ch":""})
-        reg_fig.update_traces(textposition='outside',
-                         textfont=dict(size=12, color=WHITE))
+        reg_fig.update_traces(textposition='outside', textfont=dict(size=12, color=WHITE))
         reg_fig.update_layout(coloraxis_showscale=False)
-        chart_card(
-            "Acquisition channel predicts churn — 5× gap between best and worst",
-            "Channel IDs are anonymised sign-up pathways (app, web, partner bundles). KKBox hasn't published the mapping — but the churn rate difference is real.",
-            reg_fig, 420
-        )
+        chart_card("ACQUISITION", BLUE,
+            "Channel predicts churn — 5× gap between best and worst",
+            "Channel IDs are anonymised sign-up pathways. KKBox hasn't published the mapping — but the churn rate difference is real and consistent.",
+            reg_fig)
 
-# ── TAB 3 ────────────────────────────────────
 with tab3:
     tier_c = {"High Risk":RED,"Medium Risk":AMBER,"Low Risk":GREEN}
 
     st.markdown(f"""
-    <div class='chart-hed' style='font-size:18px;margin-bottom:6px'>
+    <div class='viz-card-hed' style='font-size:18px;margin-bottom:8px'>
       Every user scored by churn probability — three tiers, one clear priority
     </div>
-    <div class='chart-dek' style='font-size:14px;margin-bottom:24px'>
+    <div style='font-size:14px;color:{BODY};line-height:1.8;margin-bottom:24px'>
       The XGBoost model assigns each user a churn probability between 0 and 1.
       High Risk users have the highest probability of churning and the most
       revenue at stake — they are the immediate intervention target.
@@ -487,7 +407,7 @@ with tab3:
             st.markdown(f"""
             <div style='background:{CARD};border:1px solid {BORDER};
                         border-top:3px solid {clr};border-radius:14px;
-                        padding:26px 28px'>
+                        padding:26px 28px;height:230px'>
               <div style='font-size:11px;font-weight:700;text-transform:uppercase;
                           letter-spacing:0.14em;color:{clr};margin-bottom:14px'>
                 {row['risk_tier']}
@@ -495,47 +415,42 @@ with tab3:
               <div style='font-size:40px;font-weight:700;color:{WHITE};line-height:1'>
                 {int(row['users']):,}
               </div>
-              <div style='font-size:13px;color:{MUTED};margin-bottom:18px'>users</div>
-              <div style='border-top:1px solid {BORDER};padding-top:14px'>
-                <div style='font-size:13px;color:{BODY};line-height:2.2'>
-                  Avg churn probability<br>
-                  <span style='font-size:22px;font-weight:700;
-                               color:{clr}'>{row['avg_prob']}%</span>
+              <div style='font-size:13px;color:{MUTED};margin-bottom:14px'>users</div>
+              <div style='border-top:1px solid {BORDER};padding-top:12px'>
+                <div style='font-size:13px;color:{BODY}'>
+                  Avg churn probability
+                  <span style='font-weight:700;color:{clr}'>&nbsp;{row['avg_prob']}%</span>
                 </div>
-                <div style='font-size:13px;color:{BODY};margin-top:8px;line-height:2'>
-                  Revenue at risk<br>
-                  <span style='font-size:18px;font-weight:700;
-                               color:{WHITE}'>TWD {row['rev_at_risk']:,.0f}</span>
+                <div style='font-size:13px;color:{BODY};margin-top:6px'>
+                  Revenue at risk
+                  <span style='font-weight:700;color:{WHITE}'>&nbsp;TWD {row['rev_at_risk']:,.0f}</span>
                 </div>
               </div>
             </div>
             """, unsafe_allow_html=True)
 
-    st.divider()
-
+    st.write("")
     rc1, rc2 = st.columns(2)
     tiers = risk_df['risk_tier'].tolist()
     clrs  = [tier_c.get(t,MUTED) for t in tiers]
 
     with rc1:
         f5 = go.Figure(go.Bar(
-            x=tiers, y=risk_df['users'].tolist(),
-            marker_color=clrs,
+            x=tiers, y=risk_df['users'].tolist(), marker_color=clrs,
             text=[f"{v:,}" for v in risk_df['users'].tolist()],
-            textposition='outside',
-            textfont=dict(color=WHITE, size=14)))
+            textposition='outside', textfont=dict(color=WHITE, size=13)))
         f5.update_layout(yaxis_title="Users", showlegend=False)
-        chart_card("Users per risk tier", "High risk users are the minority but carry the most intervention value.", f5, 340)
+        chart_card("DISTRIBUTION", GREEN, "Users per risk tier",
+            "High risk users are the minority but carry the most intervention value per user.", f5)
 
     with rc2:
         f6 = go.Figure(go.Bar(
-            x=tiers, y=risk_df['rev_at_risk'].tolist(),
-            marker_color=clrs,
+            x=tiers, y=risk_df['rev_at_risk'].tolist(), marker_color=clrs,
             text=[f"TWD {v:,.0f}" for v in risk_df['rev_at_risk'].tolist()],
-            textposition='outside',
-            textfont=dict(color=WHITE, size=12)))
+            textposition='outside', textfont=dict(color=WHITE, size=12)))
         f6.update_layout(yaxis_title="TWD", showlegend=False)
-        chart_card("Revenue at risk per tier", "High risk users account for the largest share of revenue at stake despite being the smallest group.", f6, 340)
+        chart_card("IMPACT", AMBER, "Revenue at risk per tier",
+            "High risk users account for the largest share of revenue at stake despite being the smallest group.", f6)
 
     st.markdown(f"""
     <div class='insight'>
@@ -548,9 +463,7 @@ with tab3:
     </div>
     """, unsafe_allow_html=True)
 
-# ── TAB 4 ────────────────────────────────────
 with tab4:
-    # Summary strip
     st.markdown(f"""
     <div style='background:{CARD};border:1px solid {BORDER};border-radius:14px;
                 padding:28px 32px;margin-bottom:32px'>
@@ -558,27 +471,23 @@ with tab4:
       <div style='display:grid;grid-template-columns:repeat(4,1fr);
                   gap:24px;margin-top:16px'>
         <div style='border-left:3px solid {GREEN};padding-left:16px'>
-          <div style='font-size:11px;font-weight:700;text-transform:uppercase;
-                      letter-spacing:0.1em;color:{MUTED};margin-bottom:6px'>Hold-out AUC</div>
-          <div style='font-size:32px;font-weight:700;color:{GREEN}'>0.9876</div>
+          <div class='stat-label'>Hold-out AUC</div>
+          <div style='font-size:30px;font-weight:700;color:{GREEN}'>0.9876</div>
           <div style='font-size:12px;color:{BODY};margin-top:4px'>on unseen test data</div>
         </div>
         <div style='border-left:3px solid {GREEN};padding-left:16px'>
-          <div style='font-size:11px;font-weight:700;text-transform:uppercase;
-                      letter-spacing:0.1em;color:{MUTED};margin-bottom:6px'>5-Fold CV Mean</div>
-          <div style='font-size:32px;font-weight:700;color:{GREEN}'>0.9875</div>
+          <div class='stat-label'>5-Fold CV Mean</div>
+          <div style='font-size:30px;font-weight:700;color:{GREEN}'>0.9875</div>
           <div style='font-size:12px;color:{BODY};margin-top:4px'>confirms no overfitting</div>
         </div>
         <div style='border-left:3px solid {BLUE};padding-left:16px'>
-          <div style='font-size:11px;font-weight:700;text-transform:uppercase;
-                      letter-spacing:0.1em;color:{MUTED};margin-bottom:6px'>CV Std Deviation</div>
-          <div style='font-size:32px;font-weight:700;color:{WHITE}'>±0.0003</div>
+          <div class='stat-label'>CV Std Deviation</div>
+          <div style='font-size:30px;font-weight:700;color:{WHITE}'>±0.0003</div>
           <div style='font-size:12px;color:{BODY};margin-top:4px'>extremely stable</div>
         </div>
         <div style='border-left:3px solid {AMBER};padding-left:16px'>
-          <div style='font-size:11px;font-weight:700;text-transform:uppercase;
-                      letter-spacing:0.1em;color:{MUTED};margin-bottom:6px'>Optimal F1 Score</div>
-          <div style='font-size:32px;font-weight:700;color:{WHITE}'>0.849</div>
+          <div class='stat-label'>Optimal F1 Score</div>
+          <div style='font-size:30px;font-weight:700;color:{WHITE}'>0.849</div>
           <div style='font-size:12px;color:{BODY};margin-top:4px'>at threshold 0.85</div>
         </div>
       </div>
@@ -586,67 +495,43 @@ with tab4:
     """, unsafe_allow_html=True)
 
     mv1, mv2 = st.columns(2)
-
     with mv1:
-        img_card(
-            "Baseline vs XGBoost",
-            BLUE,
+        img_card("BASELINE COMPARISON", BLUE,
+            "XGBoost beats Logistic Regression by +0.085 AUC",
             ASSETS_PATH/"model_comparison.png",
-            "Logistic Regression baseline: AUC 0.9028. XGBoost: 0.9876. "
-            "The +0.085 gap confirms that subscription churn has non-linear "
-            "patterns a linear model can't capture."
-        )
-
+            "LR baseline: AUC 0.9028. XGBoost: 0.9876. The gap confirms "
+            "subscription churn has non-linear patterns a linear model can't capture.")
     with mv2:
-        img_card(
-            "5-Fold Cross-Validation Stability",
-            GREEN,
+        img_card("CROSS-VALIDATION", GREEN,
+            "AUC 0.9876 is stable across all 5 folds",
             ASSETS_PATH/"cross_validation.png",
-            "All 5 folds score between 0.9871 and 0.9880 — a range of 0.0009. "
-            "AUC 0.9876 is not a lucky train/test split. "
-            "The model generalises."
-        )
+            "All 5 folds score between 0.9871 and 0.9880 — a range of just 0.0009. "
+            "Not a lucky train/test split. The model generalises.")
 
-    st.divider()
-
+    st.write("")
     mv3, mv4 = st.columns(2)
-
     with mv3:
-        img_card(
-            "Threshold Optimisation",
-            AMBER,
+        img_card("THRESHOLD TUNING", AMBER,
+            "Default threshold isn't optimal for churn",
             ASSETS_PATH/"threshold_analysis.png",
-            "Default threshold 0.5 gives F1 0.729. "
-            "Optimal threshold 0.85 gives F1 0.849. "
-            "For churn, missing a churner costs more than a false alarm."
-        )
-
+            "Default 0.5: F1 0.729. Optimal 0.85: F1 0.849. "
+            "For churn, missing a churner costs more than a false alarm.")
     with mv4:
-        img_card(
-            "SHAP Beeswarm — Direction per User",
-            ACCENT,
+        img_card("FEATURE DIRECTION", ACCENT,
+            "SHAP beeswarm — how each feature pushes predictions",
             ASSETS_PATH/"shap_beeswarm.png",
-            "Each dot = one user. Red = high feature value, blue = low. "
-            "Dots to the right increase churn probability. "
-            "Auto-renew and days_until_expiry dominate the right side."
-        )
+            "Each dot = one user. Red = high value, blue = low. "
+            "Right = pushes toward churn. Auto-renew dominates the right side.")
 
-    st.divider()
-
-    img_card(
-        "SHAP Dependence — Auto-Renew Deep Dive",
-        RED,
+    st.write("")
+    img_card("DEEP DIVE", RED,
+        "Auto-renew OFF sharply increases predicted churn",
         ASSETS_PATH/"shap_dependence_autorenew.png",
-        "Auto-renew is binary: 0 = OFF (left cluster), 1 = ON (right cluster). "
-        "Users with auto-renew OFF have SHAP values between 0.5 and 3.5 — "
-        "meaning the model pushes their churn probability significantly higher. "
-        "This is the most actionable feature in the entire model: "
-        "one behaviour change that dramatically reduces predicted churn."
-    )
+        "Auto-renew is binary: 0 = OFF, 1 = ON. Users with auto-renew OFF "
+        "show SHAP values between 0.5 and 3.5 — the model pushes their churn "
+        "probability significantly higher. The most actionable single feature in the model.")
 
-# ── TAB 5 ────────────────────────────────────
 with tab5:
-    # ROI hero
     st.markdown(f"""
     <div style='background:{CARD};border:1px solid {BORDER};
                 border-top:3px solid {GREEN};border-radius:14px;
@@ -680,24 +565,18 @@ with tab5:
     st.divider()
 
     recs = [
-        {
-            "num":"01","color":GREEN,"label":"HIGHEST IMPACT",
-            "title":"Give users a reason to turn auto-renew on",
-            "finding":"Auto-renew OFF is the single strongest churn predictor in the model — 8× higher churn rate than auto-renew ON. These users listen just as much. They just haven't committed to renewing.",
-            "action":f"Offer a permanent 10% discount to any user who enables auto-renew. Cost of discount is far lower than cost of reacquisition. Targeting {int(roi['n_high_risk']):,} high-risk users first yields a modelled {roi['roi_ratio']}x ROI.",
-        },
-        {
-            "num":"02","color":AMBER,"label":"REVENUE PROTECTION",
-            "title":"Stop using deep discounts to sell long plans",
-            "finding":"Churned users paid TWD 383 on average vs TWD 129 for retained users. Long discounted plans attract subscribers who cancel once the deal expires — not loyal users.",
-            "action":"Redirect discount budget from long-plan acquisition to loyalty rewards for existing monthly subscribers. Acquire fewer users but retain them longer.",
-        },
-        {
-            "num":"03","color":BLUE,"label":"ACQUISITION QUALITY",
-            "title":"Audit and reallocate acquisition channel spend",
-            "finding":"The highest-churn acquisition channel produces users who churn at over 5× the rate of the lowest-churn channel. Acquisition channel is the third strongest churn predictor in SHAP.",
-            "action":"Identify which channels map to the high-churn IDs and reduce spend there. Reinvest in channels that produce loyal users — even if the upfront volume is lower.",
-        },
+        {"num":"01","color":GREEN,"label":"HIGHEST IMPACT",
+         "title":"Give users a reason to turn auto-renew on",
+         "finding":"Auto-renew OFF is the single strongest churn predictor in the model — 8× higher churn rate than auto-renew ON. These users listen just as much. They just haven't committed to renewing.",
+         "action":f"Offer a permanent 10% discount to any user who enables auto-renew. Cost of discount is far lower than cost of reacquisition. Targeting {int(roi['n_high_risk']):,} high-risk users first yields a modelled {roi['roi_ratio']}x ROI."},
+        {"num":"02","color":AMBER,"label":"REVENUE PROTECTION",
+         "title":"Stop using deep discounts to sell long plans",
+         "finding":"Churned users paid TWD 383 on average vs TWD 129 for retained users. Long discounted plans attract subscribers who cancel once the deal expires — not loyal users.",
+         "action":"Redirect discount budget from long-plan acquisition to loyalty rewards for existing monthly subscribers. Acquire fewer users but retain them longer."},
+        {"num":"03","color":BLUE,"label":"ACQUISITION QUALITY",
+         "title":"Audit and reallocate acquisition channel spend",
+         "finding":"The highest-churn acquisition channel produces users who churn at over 5× the rate of the lowest-churn channel. Acquisition channel is the third strongest churn predictor in SHAP.",
+         "action":"Identify which channels map to the high-churn IDs and reduce spend there. Reinvest in channels that produce loyal users — even if the upfront volume is lower."},
     ]
 
     for rec in recs:
