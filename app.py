@@ -140,13 +140,13 @@ st.markdown(f"""
       margin-bottom: 4px;
   }}
   .chart-hed {{
-      font-size: 15px; font-weight: 700;
+      font-size: 17px; font-weight: 700;
       color: {WHITE}; line-height: 1.4;
-      margin-bottom: 6px;
+      margin-bottom: 8px;
   }}
   .chart-dek {{
-      font-size: 13px; color: {BODY};
-      line-height: 1.7; margin-bottom: 16px;
+      font-size: 14px; color: {BODY};
+      line-height: 1.75; margin-bottom: 18px;
   }}
   /* Insight box */
   .insight {{
@@ -168,18 +168,31 @@ st.markdown(f"""
       margin-bottom: 4px;
   }}
   .img-card-label {{
-      font-size: 11px; font-weight: 700;
+      font-size: 13px; font-weight: 700;
       text-transform: uppercase; letter-spacing: 0.12em;
-      padding: 10px 18px;
+      padding: 14px 20px;
       border-bottom: 1px solid {BORDER};
   }}
   .img-card-inner {{
       background: #F5F5F7;
       padding: 16px;
+      max-height: 380px;
+      overflow: hidden;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+  }}
+  .img-card-inner img {{
+      max-height: 350px;
+      width: auto !important;
+      max-width: 100%;
+      object-fit: contain;
   }}
   .img-cap {{
-      font-size: 13px; color: {BODY};
-      line-height: 1.7; padding: 14px 18px 16px;
+      font-size: 14px; color: {BODY};
+      line-height: 1.75; padding: 16px 20px 18px;
+      border-top: 1px solid {BORDER};
+      margin-top: 4px;
   }}
   /* Stat row */
   .stat-row {{
