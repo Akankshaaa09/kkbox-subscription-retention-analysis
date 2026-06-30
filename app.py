@@ -229,7 +229,6 @@ def C(fig, h=400):
         plot_bgcolor=CARD2, paper_bgcolor=CARD,
         font=dict(color=BODY, family="Sora", size=12),
         margin=dict(t=8, b=8, l=8, r=8),
-        title=None,
         xaxis=dict(gridcolor=BORDER, linecolor=BORDER,
                    tickcolor=BORDER, tickfont=dict(color=BODY, size=11)),
         yaxis=dict(gridcolor=BORDER, linecolor=BORDER,
@@ -367,7 +366,7 @@ with tab1:
         f.update_traces(textposition='outside',
                         textfont=dict(size=11, color=WHITE))
         f.update_layout(coloraxis_showscale=False,
-                        xaxis_range=[80,103], title=None,
+                        xaxis_range=[80,103],
                         yaxis={'categoryorder':'category ascending'})
         return C(f, 500)
 
@@ -411,7 +410,7 @@ with tab2:
                     labels={"churn_pct":"Churn Rate (%)","status":""})
         auto_fig.update_traces(textposition='outside',
                          textfont=dict(size=17, color=WHITE), width=0.45)
-        auto_fig.update_layout(showlegend=False, yaxis_range=[0,38], title=None)
+        auto_fig.update_layout(showlegend=False, yaxis_range=[0,38])
         chart_card(
             "Auto-renew OFF users churn at 8× the rate of auto-renew ON",
             "The single strongest predictor in the model. Users who opted out of auto-renewal are far more likely to churn — regardless of how much they listen.",
@@ -429,7 +428,7 @@ with tab2:
                     labels={"churn_pct":"Churn Rate (%)","label":""})
         plan_fig.update_traces(textposition='outside',
                          textfont=dict(size=15, color=WHITE))
-        plan_fig.update_layout(coloraxis_showscale=False, title=None)
+        plan_fig.update_layout(coloraxis_showscale=False)
         chart_card(
             "Longer discounted plans attract less loyal subscribers",
             "Counter-intuitive but consistent: users on longer plans churn more. These are likely acquired via heavy discounts — low entry price, low commitment.",
@@ -459,7 +458,7 @@ with tab2:
                     labels={"churn_pct":"Churn (%)","ch":""})
         reg_fig.update_traces(textposition='outside',
                          textfont=dict(size=12, color=WHITE))
-        reg_fig.update_layout(coloraxis_showscale=False, title=None)
+        reg_fig.update_layout(coloraxis_showscale=False)
         chart_card(
             "Acquisition channel predicts churn — 5× gap between best and worst",
             "Channel IDs are anonymised sign-up pathways (app, web, partner bundles). KKBox hasn't published the mapping — but the churn rate difference is real.",
@@ -525,7 +524,7 @@ with tab3:
             text=[f"{v:,}" for v in risk_df['users'].tolist()],
             textposition='outside',
             textfont=dict(color=WHITE, size=14)))
-        f5.update_layout(yaxis_title="Users", showlegend=False, title=None)
+        f5.update_layout(yaxis_title="Users", showlegend=False)
         chart_card("Users per risk tier", "High risk users are the minority but carry the most intervention value.", f5, 340)
 
     with rc2:
@@ -535,7 +534,7 @@ with tab3:
             text=[f"TWD {v:,.0f}" for v in risk_df['rev_at_risk'].tolist()],
             textposition='outside',
             textfont=dict(color=WHITE, size=12)))
-        f6.update_layout(yaxis_title="TWD", showlegend=False, title=None)
+        f6.update_layout(yaxis_title="TWD", showlegend=False)
         chart_card("Revenue at risk per tier", "High risk users account for the largest share of revenue at stake despite being the smallest group.", f6, 340)
 
     st.markdown(f"""
