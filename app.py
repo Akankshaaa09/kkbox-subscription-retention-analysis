@@ -109,32 +109,18 @@ st.markdown(f"""
       font-weight: 600; color: {BODY}; margin: 3px 2px;
   }}
 
-  .viz-card {{
-      background: {CARD}; border: 1px solid {BORDER};
-      border-radius: 14px; overflow: hidden;
+  /* Style Streamlit's native bordered container as our dark card */
+  div[data-testid="stVerticalBlockBorderWrapper"] > div {{
+      background: {CARD} !important;
+      border: 1px solid {BORDER} !important;
+      border-radius: 14px !important;
+      padding: 20px 22px !important;
   }}
-  .viz-card-header {{ padding: 20px 22px 6px; }}
   .viz-card-tag {{
       display: block; font-size: 11px; font-weight: 700;
       text-transform: uppercase; letter-spacing: 0.12em; margin-bottom: 8px;
   }}
   .viz-card-hed {{ font-size: 16px; font-weight: 700; color: {WHITE}; line-height: 1.4; }}
-  .viz-card-body {{
-      display: flex; align-items: center; justify-content: center;
-      padding: 12px 22px; min-height: {CARD_IMG_H}px;
-  }}
-  .viz-card-body.light {{
-      background: #F5F5F7; margin: 4px 22px;
-      border-radius: 10px; padding: 14px;
-  }}
-  .viz-card-body img {{
-      max-height: {CARD_IMG_H - 28}px; width: auto !important;
-      max-width: 100%; object-fit: contain;
-  }}
-  .viz-card-cap {{
-      font-size: 13px; color: {BODY}; line-height: 1.7;
-      padding: 14px 22px 20px; border-top: 1px solid {BORDER}; margin-top: 10px;
-  }}
 
   .insight {{
       background: {CARD2}; border: 1px solid {BORDER};
@@ -187,30 +173,33 @@ def style_chart(fig, h=CHART_H):
     return fig
 
 def chart_card(tag, tag_color, hed, dek, fig, h=CHART_H):
-    st.markdown(f"""
-    <div class='viz-card'>
-      <div class='viz-card-header'>
+    with st.container(border=True):
+        st.markdown(f"""
         <span class='viz-card-tag' style='color:{tag_color}'>{tag}</span>
-        <div class='viz-card-hed'>{hed}</div>
-      </div>
-    """, unsafe_allow_html=True)
-    st.plotly_chart(style_chart(fig, h), use_container_width=True,
-                     config={'displayModeBar': False})
-    st.markdown(f"<div class='viz-card-cap'>{dek}</div></div>",
-                unsafe_allow_html=True)
+        <div class='viz-card-hed' style='margin-bottom:4px'>{hed}</div>
+        """, unsafe_allow_html=True)
+        st.plotly_chart(style_chart(fig, h), use_container_width=True,
+                         config={'displayModeBar': False})
+        st.markdown(f"""
+        <div style='font-size:13px;color:{BODY};line-height:1.7;
+                    padding-top:14px;margin-top:4px;
+                    border-top:1px solid {BORDER}'>{dek}</div>
+        """, unsafe_allow_html=True)
 
 def img_card(tag, tag_color, hed, path, caption):
-    st.markdown(f"""
-    <div class='viz-card'>
-      <div class='viz-card-header'>
+    with st.container(border=True):
+        st.markdown(f"""
         <span class='viz-card-tag' style='color:{tag_color}'>{tag}</span>
-        <div class='viz-card-hed'>{hed}</div>
-      </div>
-      <div class='viz-card-body light'>
-    """, unsafe_allow_html=True)
-    st.image(str(path), width=540)
-    st.markdown(f"</div><div class='viz-card-cap'>{caption}</div></div>",
-                unsafe_allow_html=True)
+        <div class='viz-card-hed' style='margin-bottom:14px'>{hed}</div>
+        """, unsafe_allow_html=True)
+        left, mid, right = st.columns([1, 6, 1])
+        with mid:
+            st.image(str(path), use_container_width=True)
+        st.markdown(f"""
+        <div style='font-size:13px;color:{BODY};line-height:1.7;
+                    padding-top:14px;margin-top:10px;
+                    border-top:1px solid {BORDER}'>{caption}</div>
+        """, unsafe_allow_html=True)
 
 ov      = q("SELECT COUNT(*) total, ROUND(AVG(is_churn)*100,2) churn, ROUND(AVG(CASE WHEN is_churn=0 THEN actual_amount_paid END),2) rev_ret, ROUND(AVG(CASE WHEN is_churn=1 THEN actual_amount_paid END),2) rev_ch FROM users").iloc[0]
 cohort  = q("SELECT cohort, cohort_size, retained, retention_rate FROM cohort_retention WHERE cohort>='2015-01' ORDER BY cohort")
