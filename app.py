@@ -452,6 +452,45 @@ with tab3:
     </div>
     """, unsafe_allow_html=True)
 
+    top_risk = q("""
+        WITH ranked_risk AS (
+            SELECT
+                risk_tier,
+                churn_probability,
+                plan_list_price,
+                ROUND(churn_probability * plan_list_price, 0) AS revenue_at_stake,
+                ROW_NUMBER() OVER (
+                    PARTITION BY risk_tier
+                    ORDER BY churn_probability * plan_list_price DESC
+                ) AS rank_in_tier
+            FROM risk_scores
+        )
+        SELECT risk_tier, churn_probability, plan_list_price, revenue_at_stake, rank_in_tier
+        FROM ranked_risk
+        WHERE rank_in_tier <= 10
+        ORDER BY risk_tier, rank_in_tier
+    """)
+
+    st.markdown(f"""
+    <div class='viz-card-hed' style='font-size:18px;margin:28px 0 8px'>
+      Top 10 users to prioritize, per risk tier
+    </div>
+    <div style='font-size:14px;color:{BODY};line-height:1.8;margin-bottom:16px'>
+      Ranked within each tier by revenue at stake (churn probability × plan price) —
+      this is the actual intervention shortlist, not just the risk-tier bucket.
+    </div>
+    """, unsafe_allow_html=True)
+
+    with st.container(border=True):
+        st.dataframe(
+            top_risk.style.format({
+                'churn_probability': '{:.1%}',
+                'plan_list_price': 'TWD {:.0f}',
+                'revenue_at_stake': 'TWD {:.0f}'
+            }),
+            use_container_width=True, hide_index=True
+        )
+
 with tab4:
     st.markdown(f"""
     <div style='background:{CARD};border:1px solid {BORDER};border-radius:14px;
