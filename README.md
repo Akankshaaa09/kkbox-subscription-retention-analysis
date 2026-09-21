@@ -4,8 +4,6 @@ Retention analysis on 970,000+ subscribers of KKBox, Asia's leading music
 streaming platform — built to answer: **who is leaving, why, and who do we 
 act on first?**
 
-🔗 **[Live Dashboard](https://kkbox-subscription-retention-analysis-lxakz4zp4xegizha4x5jbq.streamlit.app/)**
-
 ---
 
 ## Key Findings
@@ -23,5 +21,4 @@ act on first?**
 Python · SQL · XGBoost · SHAP · Streamlit
 
 ## Data
-WSDM KKBox Churn Prediction Dataset — 970K users, 21.5M transactions, 
-30M listening logs. Processed in Kaggle cloud environment due to ~8GB size.
+WSDM KKBox Churn Prediction Dataset — 970K users, 1.3M+ transactions. Processed in Kaggle cloud environment due to ~8GB size.
