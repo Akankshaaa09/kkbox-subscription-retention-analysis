@@ -21,4 +21,4 @@ act on first?**
 Python · SQL · XGBoost · SHAP · Streamlit
 
 ## Data
-WSDM KKBox Churn Prediction Dataset — 970K users, 1.3M+ transactions. Processed in Kaggle cloud environment due to ~8GB size.
+WSDM KKBox Churn Prediction Dataset — 970K users, 1.43M+ transactions. Processed in Kaggle cloud environment due to ~8GB size.
