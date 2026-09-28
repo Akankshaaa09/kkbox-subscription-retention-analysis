@@ -1,9 +1,10 @@
 # ============================================================
 # KKBox Subscription Retention & Churn Analysis
-# Streamlit Dashboard — Locked Final Version
+# Streamlit Dashboard, v2 (UI/UX revamp + campaign simulator)
 # Author: Akanksha Nayak
 # ============================================================
 from pathlib import Path
+import base64
 import gdown
 
 DB_PATH = Path("data/kkbox.db")
@@ -16,9 +17,11 @@ if not DB_PATH.exists():
 
 import streamlit as st
 import pandas as pd
+import numpy as np
 import sqlite3
 import plotly.express as px
 import plotly.graph_objects as go
+from plotly.subplots import make_subplots
 
 st.set_page_config(
     page_title="KKBox Churn Analysis",
@@ -41,8 +44,7 @@ MUTED   = "#7070A0"
 ACCENT  = "#9B7FFF"
 WHITE   = "#FFFFFF"
 
-CHART_H    = 360
-CARD_IMG_H = 340
+CHART_H = 360
 
 st.markdown(f"""
 <style>
@@ -56,6 +58,30 @@ st.markdown(f"""
   .stApp {{ background-color: {BG}; }}
   .block-container {{ padding-top: 2rem !important; max-width: 1280px; }}
 
+  /* ---------- Hide Streamlit chrome ---------- */
+  #MainMenu, footer, .stDeployButton,
+  [data-testid="stToolbar"], [data-testid="stDecoration"] {{ display: none !important; }}
+  header[data-testid="stHeader"] {{ background: transparent !important; height: 0 !important; }}
+
+  /* ---------- Motion ---------- */
+  @keyframes fadeUp {{
+      from {{ opacity: 0; transform: translateY(14px); }}
+      to   {{ opacity: 1; transform: none; }}
+  }}
+  .hero {{ animation: fadeUp .7s ease both; }}
+  .stTabs [data-baseweb="tab-panel"] {{ animation: fadeUp .45s ease both; }}
+  div[data-testid="stVerticalBlockBorderWrapper"] {{
+      transition: transform .2s ease, box-shadow .2s ease;
+  }}
+  div[data-testid="stVerticalBlockBorderWrapper"]:hover {{
+      transform: translateY(-2px);
+      box-shadow: 0 10px 30px rgba(0,0,0,.35);
+  }}
+  @media (prefers-reduced-motion: reduce) {{
+      * {{ animation: none !important; transition: none !important; }}
+  }}
+
+  /* ---------- Tabs ---------- */
   .stTabs [data-baseweb="tab-list"] {{
       gap: 0; background: {CARD}; padding: 0 8px;
       border-radius: 14px; border: 1px solid {BORDER};
@@ -72,20 +98,19 @@ st.markdown(f"""
       font-weight: 600 !important; border: 1px solid {BORDER} !important;
   }}
   .stTabs [data-baseweb="tab"]:hover {{ color: {TEXT} !important; }}
+  .stTabs [data-baseweb="tab-highlight"], .stTabs [data-baseweb="tab-border"] {{ display: none; }}
 
-  .gtitle {{ display: none !important; }}
-  .js-plotly-plot .gtitle {{ display: none !important; }}
-
-  div[data-testid="metric-container"] {{
+  /* ---------- Metrics ---------- */
+  div[data-testid="stMetric"], div[data-testid="metric-container"] {{
       background: {CARD}; border: 1px solid {BORDER};
       border-radius: 12px; padding: 22px 24px;
   }}
-  div[data-testid="metric-container"] label {{
+  div[data-testid="stMetric"] label, div[data-testid="metric-container"] label {{
       color: {MUTED} !important; font-size: 11px !important;
       font-weight: 600 !important; text-transform: uppercase;
       letter-spacing: 0.12em;
   }}
-  div[data-testid="metric-container"] div[data-testid="stMetricValue"] {{
+  div[data-testid="stMetricValue"] {{
       color: {WHITE} !important; font-family: 'Sora', sans-serif !important;
       font-size: 28px !important; font-weight: 700 !important;
   }}
@@ -93,23 +118,27 @@ st.markdown(f"""
 
   hr {{ border-color: {BORDER} !important; margin: 32px 0 !important; }}
 
+  /* ---------- Type ---------- */
   .eyebrow {{
       font-size: 11px; font-weight: 600; text-transform: uppercase;
       letter-spacing: 0.15em; color: {MUTED}; margin-bottom: 10px;
   }}
   .display {{
-      font-family: 'Playfair Display', serif; font-size: 2.6rem;
+      font-family: 'Playfair Display', serif; font-size: 2.7rem;
       font-weight: 700; color: {WHITE}; line-height: 1.15;
-      margin-bottom: 18px;
+      margin-bottom: 18px; max-width: 900px;
   }}
-  .lead {{ font-size: 15px; color: {BODY}; line-height: 1.8; max-width: 660px; }}
+  .display em {{ font-style: normal; color: {GREEN}; }}
+  .lead {{ font-size: 15px; color: {BODY}; line-height: 1.8; max-width: 720px; }}
   .pill {{
       display: inline-block; background: {CARD2}; border: 1px solid {BORDER};
       border-radius: 20px; padding: 5px 16px; font-size: 12px;
       font-weight: 600; color: {BODY}; margin: 3px 2px;
   }}
+  .section-hed {{ font-size: 18px; font-weight: 700; color: {WHITE}; margin-bottom: 8px; }}
+  .section-dek {{ font-size: 14px; color: {BODY}; line-height: 1.8; margin-bottom: 20px; max-width: 820px; }}
 
-  /* Style Streamlit's native bordered container as our dark card */
+  /* ---------- Cards ---------- */
   div[data-testid="stVerticalBlockBorderWrapper"] > div {{
       background: {CARD} !important;
       border: 1px solid {BORDER} !important;
@@ -121,6 +150,15 @@ st.markdown(f"""
       text-transform: uppercase; letter-spacing: 0.12em; margin-bottom: 8px;
   }}
   .viz-card-hed {{ font-size: 16px; font-weight: 700; color: {WHITE}; line-height: 1.4; }}
+  .viz-dek {{
+      font-size: 13px; color: {BODY}; line-height: 1.7;
+      padding-top: 14px; margin-top: 6px; border-top: 1px solid {BORDER};
+  }}
+  /* Static SHAP charts were exported on white; flip them to match the dark theme */
+  .dark-img {{
+      width: 100%; border-radius: 10px;
+      filter: invert(0.93) hue-rotate(180deg);
+  }}
 
   .insight {{
       background: {CARD2}; border: 1px solid {BORDER};
@@ -130,10 +168,15 @@ st.markdown(f"""
   }}
   .insight b {{ color: {WHITE}; }}
   .insight-amber {{ border-left-color: {AMBER}; }}
+  .insight-blue  {{ border-left-color: {BLUE}; }}
 
   .stat-row {{
       display: grid; grid-template-columns: repeat(4,1fr);
       gap: 20px; margin-top: 28px;
+  }}
+  @media (max-width: 800px) {{
+      .stat-row {{ grid-template-columns: repeat(2,1fr); }}
+      .display {{ font-size: 2rem; }}
   }}
   .stat-item {{ border-left: 3px solid; padding-left: 16px; }}
   .stat-label {{
@@ -141,10 +184,16 @@ st.markdown(f"""
       letter-spacing: 0.1em; color: {MUTED}; margin-bottom: 4px;
   }}
   .stat-value {{ font-size: 26px; font-weight: 700; color: {WHITE}; }}
+
+  /* ---------- Simulator ---------- */
+  .sim-hed {{
+      font-family: 'Playfair Display', serif; font-size: 1.6rem;
+      font-weight: 700; color: {WHITE}; line-height: 1.4; margin: 6px 0 10px;
+  }}
+  .sim-note {{ font-size: 12.5px; color: {MUTED}; line-height: 1.7; }}
 </style>
 """, unsafe_allow_html=True)
 
-DB_PATH     = Path("data/kkbox.db")
 ASSETS_PATH = Path("assets")
 
 @st.cache_resource
@@ -158,18 +207,18 @@ def q(sql):
 def style_chart(fig, h=CHART_H):
     fig.update_layout(
         height=h,
+        title=dict(text=""),          # empty title instead of popping it (fixes 'undefined' labels)
         plot_bgcolor=CARD2, paper_bgcolor=CARD,
         font=dict(color=BODY, family="Sora", size=12),
-        margin=dict(t=10, b=8, l=8, r=8),
-        xaxis=dict(gridcolor=BORDER, linecolor=BORDER,
-                   tickcolor=BORDER, tickfont=dict(color=BODY, size=11)),
-        yaxis=dict(gridcolor=BORDER, linecolor=BORDER,
-                   tickcolor=BORDER, tickfont=dict(color=BODY, size=11)),
-        legend=dict(bgcolor=CARD2, bordercolor=BORDER,
-                    font=dict(color=BODY, size=12))
+        margin=dict(t=30, b=8, l=8, r=8),
+        legend=dict(bgcolor=CARD2, bordercolor=BORDER, font=dict(color=BODY, size=12)),
+        hoverlabel=dict(bgcolor=CARD2, bordercolor=BORDER, font=dict(color=WHITE, family="Sora")),
     )
-    if "title" in fig.layout:
-        fig.layout.pop("title")
+    fig.update_xaxes(gridcolor=BORDER, linecolor=BORDER, tickcolor=BORDER,
+                     tickfont=dict(color=BODY, size=11), title_font=dict(color=MUTED, size=11))
+    fig.update_yaxes(gridcolor=BORDER, linecolor=BORDER, tickcolor=BORDER,
+                     tickfont=dict(color=BODY, size=11), title_font=dict(color=MUTED, size=11))
+    fig.update_annotations(font=dict(color=BODY, size=12))
     return fig
 
 def chart_card(tag, tag_color, hed, dek, fig, h=CHART_H):
@@ -178,104 +227,224 @@ def chart_card(tag, tag_color, hed, dek, fig, h=CHART_H):
         <span class='viz-card-tag' style='color:{tag_color}'>{tag}</span>
         <div class='viz-card-hed' style='margin-bottom:4px'>{hed}</div>
         """, unsafe_allow_html=True)
-        st.plotly_chart(style_chart(fig, h), use_container_width=True,
-                         config={'displayModeBar': False})
-        st.markdown(f"""
-        <div style='font-size:13px;color:{BODY};line-height:1.7;
-                    padding-top:14px;margin-top:4px;
-                    border-top:1px solid {BORDER}'>{dek}</div>
-        """, unsafe_allow_html=True)
+        st.plotly_chart(style_chart(fig, h), width="stretch",
+                        config={'displayModeBar': False})
+        st.markdown(f"<div class='viz-dek'>{dek}</div>", unsafe_allow_html=True)
 
-def img_card(tag, tag_color, hed, path, caption):
+@st.cache_data
+def img_b64(path):
+    return base64.b64encode(Path(path).read_bytes()).decode()
+
+def img_card(tag, tag_color, hed, path, caption, width_ratio=(1, 6, 1)):
     with st.container(border=True):
         st.markdown(f"""
         <span class='viz-card-tag' style='color:{tag_color}'>{tag}</span>
         <div class='viz-card-hed' style='margin-bottom:14px'>{hed}</div>
         """, unsafe_allow_html=True)
-        left, mid, right = st.columns([1, 6, 1])
+        left, mid, right = st.columns(list(width_ratio))
         with mid:
-            st.image(str(path), use_container_width=True)
-        st.markdown(f"""
-        <div style='font-size:13px;color:{BODY};line-height:1.7;
-                    padding-top:14px;margin-top:10px;
-                    border-top:1px solid {BORDER}'>{caption}</div>
-        """, unsafe_allow_html=True)
+            st.markdown(f"<img class='dark-img' src='data:image/png;base64,{img_b64(path)}'>",
+                        unsafe_allow_html=True)
+        st.markdown(f"<div class='viz-dek'>{caption}</div>", unsafe_allow_html=True)
 
+# ---------------------------------------------------------------- data
 ov      = q("SELECT COUNT(*) total, ROUND(AVG(is_churn)*100,2) churn, ROUND(AVG(CASE WHEN is_churn=0 THEN actual_amount_paid END),2) rev_ret, ROUND(AVG(CASE WHEN is_churn=1 THEN actual_amount_paid END),2) rev_ch FROM users").iloc[0]
+per_day = q("SELECT is_churn, AVG(actual_amount_paid*1.0/payment_plan_days) per_day FROM users WHERE payment_plan_days > 0 GROUP BY is_churn").set_index("is_churn")["per_day"]
+eng     = q("SELECT is_churn, AVG(completion_rate) completion, AVG(avg_secs_per_day)/60.0 mins_per_day FROM users GROUP BY is_churn ORDER BY is_churn")
 cohort  = q("SELECT cohort, cohort_size, retained, retention_rate FROM cohort_retention WHERE cohort>='2015-01' ORDER BY cohort")
 auto_df = q("SELECT CASE WHEN is_auto_renew=1 THEN 'Auto-renew ON' ELSE 'Auto-renew OFF' END status, COUNT(*) users, ROUND(AVG(is_churn)*100,2) churn_pct FROM users WHERE is_auto_renew IS NOT NULL GROUP BY is_auto_renew ORDER BY is_auto_renew DESC")
 plan_df = q("SELECT payment_plan_days, ROUND(AVG(is_churn)*100,2) churn_pct FROM users WHERE payment_plan_days IN (7,30,90,180,365) GROUP BY payment_plan_days ORDER BY payment_plan_days")
 reg_df  = q("SELECT registered_via, COUNT(*) users, ROUND(AVG(is_churn)*100,2) churn_pct FROM users WHERE registered_via IS NOT NULL GROUP BY registered_via ORDER BY churn_pct DESC")
 risk_df = q("SELECT risk_tier, COUNT(*) users, ROUND(AVG(churn_probability)*100,1) avg_prob, ROUND(SUM(churn_probability*plan_list_price),0) rev_at_risk FROM risk_scores GROUP BY risk_tier ORDER BY avg_prob DESC")
+tier_agg = q("SELECT risk_tier, COUNT(*) n, AVG(churn_probability) p, AVG(plan_list_price) price FROM risk_scores GROUP BY risk_tier")
 roi     = q("SELECT * FROM roi_summary LIMIT 1").iloc[0]
 
+off_churn = float(auto_df.loc[auto_df.status == "Auto-renew OFF", "churn_pct"].iloc[0])
+on_churn  = float(auto_df.loc[auto_df.status == "Auto-renew ON",  "churn_pct"].iloc[0])
+gap_x     = off_churn / on_churn if on_churn else 0
+n_scored  = int(risk_df["users"].sum())
+n_high    = int(risk_df.loc[risk_df.risk_tier == "High Risk", "users"].sum())
+
+@st.cache_data
+def threshold_curve():
+    r = q("SELECT churn_probability p, actual_churn y FROM risk_scores")
+    p, y = r["p"].to_numpy(), r["y"].to_numpy()
+    rows = []
+    for t in np.round(np.arange(0.05, 0.96, 0.01), 2):
+        pred = p >= t
+        tp = int((pred & (y == 1)).sum()); fp = int((pred & (y == 0)).sum())
+        fn = int((~pred & (y == 1)).sum())
+        prec = tp / (tp + fp) if tp + fp else 0
+        rec  = tp / (tp + fn) if tp + fn else 0
+        f1   = 2 * prec * rec / (prec + rec) if prec + rec else 0
+        rows.append((t, prec, rec, f1))
+    return pd.DataFrame(rows, columns=["threshold", "precision", "recall", "f1"])
+
+# ---------------------------------------------------------------- hero
 st.markdown(f"""
-<div style='background:{CARD};border:1px solid {BORDER};border-radius:16px;
-            padding:44px 48px 40px;margin-bottom:20px'>
-  <div class='eyebrow'>Portfolio Project &nbsp;·&nbsp; Music Streaming Analytics</div>
-  <div class='display'>KKBox Subscription Retention<br>&amp; Churn Analysis</div>
+<div class='hero' style='background:{CARD};border:1px solid {BORDER};border-radius:16px;
+            padding:44px 48px 40px;margin-bottom:28px'>
+  <div class='eyebrow'>Portfolio Project &nbsp;·&nbsp; KKBox Music Streaming &nbsp;·&nbsp; {int(ov['total']):,} subscribers</div>
+  <div class='display'>Churn here is a <em>payments</em> problem,<br>not an engagement problem.</div>
   <div class='lead'>
-    Retention analysis across <b style='color:{WHITE}'>970,960 subscribers</b>
-    on Asia's leading music streaming platform — who is churning,
-    why are they leaving, and which users should we act on first?
+    People who left KKBox listened just as much as people who stayed. What separated them
+    was how they paid: with auto-renew off, churn ran <b style='color:{WHITE}'>{gap_x:.0f}× higher</b>.
+    This dashboard walks through the evidence, scores who is most likely to leave,
+    and lets you test a retention campaign yourself.
   </div>
   <div style='margin:20px 0 28px'>
     <span class='pill'>Python</span><span class='pill'>SQL</span>
     <span class='pill'>XGBoost</span><span class='pill'>SHAP</span>
-    <span class='pill'>Azure</span><span class='pill'>Streamlit</span>
+    <span class='pill'>Streamlit</span>
     <span class='pill' style='border-color:{GREEN};color:{GREEN}'>AUC 0.9876</span>
     <span class='pill' style='border-color:{ACCENT};color:{ACCENT}'>5-fold CV ±0.0003</span>
   </div>
   <div class='stat-row'>
     <div class='stat-item' style='border-color:{GREEN}'>
-      <div class='stat-label'>Users Analysed</div>
+      <div class='stat-label'>Subscribers analysed</div>
       <div class='stat-value'>{int(ov['total']):,}</div>
     </div>
-    <div class='stat-item' style='border-color:{RED}'>
-      <div class='stat-label'>Churn Rate</div>
+    <div class='stat-item' style='border-color:{MUTED}'>
+      <div class='stat-label'>Overall churn</div>
       <div class='stat-value'>{ov['churn']}%</div>
     </div>
-    <div class='stat-item' style='border-color:{AMBER}'>
-      <div class='stat-label'>Avg Rev · Retained</div>
-      <div class='stat-value'>TWD {ov['rev_ret']:,.0f}</div>
+    <div class='stat-item' style='border-color:{RED}'>
+      <div class='stat-label'>Churn · auto-renew off</div>
+      <div class='stat-value' style='color:{RED}'>{off_churn:.1f}%</div>
     </div>
-    <div class='stat-item' style='border-color:{ACCENT}'>
-      <div class='stat-label'>Avg Rev · Churned</div>
-      <div class='stat-value' style='color:{RED}'>TWD {ov['rev_ch']:,.0f}</div>
+    <div class='stat-item' style='border-color:{GREEN}'>
+      <div class='stat-label'>Churn · auto-renew on</div>
+      <div class='stat-value' style='color:{GREEN}'>{on_churn:.1f}%</div>
     </div>
   </div>
 </div>
 """, unsafe_allow_html=True)
 
-st.markdown(f"""
-<div class='insight' style='margin-bottom:28px'>
-  <b>The headline finding:</b> Churned users paid
-  <b style='color:{RED}'>3× more</b> than retained users
-  (TWD {ov['rev_ch']:,.0f} vs TWD {ov['rev_ret']:,.0f}).
-  Users without auto-renew churn at <b style='color:{RED}'>30.6%</b>
-  vs <b style='color:{GREEN}'>3.8%</b> with auto-renew on — an 8× gap.
-  <b>This is a payments and subscription management problem,
-  not an engagement problem.</b>
-</div>
-""", unsafe_allow_html=True)
-
 tab1, tab2, tab3, tab4, tab5 = st.tabs([
-    "📊  Cohort Retention", "🔍  Churn Drivers", "🎯  Risk Scoring",
-    "🧪  Model Validation", "💡  Recommendations",
+    "Why they leave", "Retention over time", "Who to save",
+    "Campaign simulator", "Model checks",
 ])
 
+# ================================================================ TAB 1: drivers
 with tab1:
+    st.markdown(f"""
+    <div class='section-hed'>The obvious guess was engagement. The data says otherwise.</div>
+    <div class='section-dek'>
+      If churn were an engagement problem, people would stop listening before they left.
+      They don't. The strongest differences between churned and retained users are all about
+      payments and subscription setup.
+    </div>
+    """, unsafe_allow_html=True)
+
+    col1, col2 = st.columns(2)
+    with col1:
+        labels = ["Retained", "Churned"]
+        e = eng.set_index("is_churn")
+        ef = make_subplots(rows=1, cols=2, subplot_titles=("Song completion rate", "Minutes listened per day"),
+                           horizontal_spacing=0.18)
+        ef.add_bar(x=labels, y=[e.loc[0, "completion"], e.loc[1, "completion"]],
+                   marker_color=[GREEN, RED], text=[f"{v:.2f}" for v in e["completion"]],
+                   textposition="outside", textfont=dict(color=WHITE), row=1, col=1,
+                   hovertemplate="%{x}: %{y:.2f}<extra></extra>")
+        ef.add_bar(x=labels, y=[e.loc[0, "mins_per_day"], e.loc[1, "mins_per_day"]],
+                   marker_color=[GREEN, RED], text=[f"{v:.0f} min" for v in e["mins_per_day"]],
+                   textposition="outside", textfont=dict(color=WHITE), row=1, col=2,
+                   hovertemplate="%{x}: %{y:.0f} min<extra></extra>")
+        ef.update_layout(showlegend=False, bargap=0.45)
+        ef.update_yaxes(rangemode="tozero")
+        ef.update_yaxes(range=[0, max(e["completion"]) * 1.25], row=1, col=1)
+        ef.update_yaxes(range=[0, max(e["mins_per_day"]) * 1.25], row=1, col=2)
+        chart_card("THE PROOF", BLUE,
+            "Churned users listened just as much",
+            "Completion rate and daily listening time are nearly identical for both groups. "
+            "Whatever is making people leave, it isn't that they stopped using the product.",
+            ef)
+
+    with col2:
+        auto_fig = px.bar(auto_df, x="status", y="churn_pct", color="status",
+                    color_discrete_map={"Auto-renew ON": GREEN, "Auto-renew OFF": RED},
+                    text=auto_df['churn_pct'].apply(lambda x: f"{x}%"),
+                    labels={"churn_pct": "Churn rate (%)", "status": ""})
+        auto_fig.update_traces(textposition='outside',
+                               textfont=dict(size=16, color=WHITE), width=0.45,
+                               hovertemplate="%{x}: %{y}% churn<extra></extra>")
+        auto_fig.update_layout(showlegend=False, yaxis_range=[0, off_churn * 1.25])
+        chart_card("THE BIGGEST LEVER", RED,
+            f"Auto-renew off: {gap_x:.0f}× the churn rate",
+            "Same listening habits, very different outcomes. Users who have to actively renew "
+            "churn far more, which makes auto-renew the most actionable lever in the data.",
+            auto_fig)
+
+    st.write("")
+    col3, col4 = st.columns(2)
+    with col3:
+        plan_df['label'] = plan_df['payment_plan_days'].apply(
+            lambda x: {7: "7 days", 30: "30 days", 90: "3 months",
+                       180: "6 months", 365: "1 year"}.get(int(x), f"{int(x)}d"))
+        plan_fig = px.bar(plan_df, x="label", y="churn_pct", color="churn_pct",
+                    color_continuous_scale=[[0, GREEN], [0.5, AMBER], [1, RED]],
+                    text=plan_df['churn_pct'].apply(lambda x: f"{x}%"),
+                    labels={"churn_pct": "Churn rate (%)", "label": ""})
+        plan_fig.update_traces(textposition='outside', textfont=dict(size=14, color=WHITE),
+                               hovertemplate="%{x}: %{y}% churn<extra></extra>")
+        plan_fig.update_layout(coloraxis_showscale=False)
+        chart_card("PLAN STRUCTURE", AMBER,
+            "Plan length changes who sticks around",
+            "Churn varies sharply by plan length. Longer plans are paid upfront, so renewal "
+            "becomes one big, deliberate decision instead of a routine monthly charge.",
+            plan_fig)
+
+    with col4:
+        reg_df['ch'] = reg_df['registered_via'].apply(lambda x: f"Ch {int(x)}")
+        reg_fig = px.bar(reg_df, x="ch", y="churn_pct", color="churn_pct",
+                    color_continuous_scale=[[0, GREEN], [0.5, AMBER], [1, RED]],
+                    text=reg_df['churn_pct'].apply(lambda x: f"{x:.1f}%"),
+                    labels={"churn_pct": "Churn (%)", "ch": ""})
+        reg_fig.update_traces(textposition='outside', textfont=dict(size=12, color=WHITE),
+                              hovertemplate="%{x}: %{y:.1f}% churn<extra></extra>")
+        reg_fig.update_layout(coloraxis_showscale=False)
+        spread = reg_df['churn_pct'].max() / max(reg_df['churn_pct'].min(), 0.01)
+        chart_card("ACQUISITION", BLUE,
+            f"Sign-up channel matters: {spread:.0f}× gap between best and worst",
+            "Channel IDs are anonymised sign-up pathways, and KKBox hasn't published the mapping. "
+            "The difference in churn is still large and consistent.",
+            reg_fig)
+
+    st.write("")
+    img_card("WHAT THE MODEL LEARNED", GREEN,
+        "Payment and subscription features dominate; listening features barely register",
+        ASSETS_PATH / "shap_beeswarm.png",
+        "Each dot is one user. Pink means a high feature value, blue means low; dots to the right "
+        "push the prediction towards churn. The top of the chart is expiry dates, pricing, cancellations "
+        "and payment method. Listening behaviour sits near the bottom.",
+        width_ratio=(1, 3, 1))
+
+    ratio_total = ov['rev_ch'] / ov['rev_ret'] if ov['rev_ret'] else 0
+    ratio_day   = per_day.get(1, 0) / per_day.get(0, 1) if per_day.get(0, 0) else 0
+    if ratio_day < 1.5:
+        rev_line = (f"Per day of subscription it's TWD {per_day.get(1,0):.1f} vs {per_day.get(0,0):.1f}, "
+                    "so most of that gap comes from plan length, not from churners paying more for the same thing.")
+    else:
+        rev_line = (f"Even per day of subscription the gap holds (TWD {per_day.get(1,0):.1f} vs {per_day.get(0,0):.1f}), "
+                    "so churners really are the higher-paying users.")
+    st.markdown(f"""
+    <div class='insight insight-amber'>
+      <b>A number worth reading carefully:</b> churned users' last payment averaged
+      TWD {ov['rev_ch']:,.0f} vs TWD {ov['rev_ret']:,.0f} for retained users ({ratio_total:.1f}×).
+      {rev_line}
+    </div>
+    """, unsafe_allow_html=True)
+
+# ================================================================ TAB 2: cohorts
+with tab2:
     avg_r = cohort['retention_rate'].mean()
     best  = cohort.loc[cohort['retention_rate'].idxmax()]
 
     st.markdown(f"""
-    <div class='viz-card-hed' style='font-size:18px;margin-bottom:8px'>
-      Retention is stable — older cohorts retain slightly better
-    </div>
-    <div style='font-size:14px;color:{BODY};line-height:1.8;margin-bottom:20px'>
-      Each row = one month of new signups. Colour shows whether that cohort
-      retained above or below the {avg_r:.1f}% average.
-      Split into two panels so every cohort is readable at a glance.
+    <div class='section-hed'>Retention is stable over time</div>
+    <div class='section-dek'>
+      Each bar is one month of new sign-ups, showing the share of that cohort that didn't churn.
+      Split into two panels so every cohort stays readable.
     </div>
     """, unsafe_allow_html=True)
 
@@ -285,112 +454,51 @@ with tab1:
     def cohort_fig(df_s):
         f = px.bar(df_s, x="retention_rate", y="cohort", orientation='h',
                    color="retention_rate",
-                   color_continuous_scale=[[0,RED],[0.5,AMBER],[1,GREEN]],
+                   color_continuous_scale=[[0, RED], [0.5, AMBER], [1, GREEN]],
                    text=df_s['retention_rate'].apply(lambda x: f"{x:.1f}%"),
-                   labels={"retention_rate":"Retention (%)","cohort":""})
-        f.update_traces(textposition='outside', textfont=dict(size=11, color=WHITE))
-        f.update_layout(coloraxis_showscale=False, xaxis_range=[80,103],
-                        yaxis={'categoryorder':'category ascending'})
+                   labels={"retention_rate": "Retention (%)", "cohort": ""},
+                   custom_data=["cohort_size"])
+        f.update_traces(textposition='outside', textfont=dict(size=11, color=WHITE),
+                        hovertemplate="%{y}: %{x:.1f}% retained<br>%{customdata[0]:,} users<extra></extra>")
+        f.update_layout(coloraxis_showscale=False, xaxis_range=[80, 103],
+                        yaxis={'categoryorder': 'category ascending'})
         return f
 
     with c1:
-        chart_card("RECENT", "#999", "Last 13 months",
-                   "More recent signup cohorts.", cohort_fig(cohort.iloc[mid:]), 480)
+        chart_card("RECENT", MUTED, "Most recent cohorts",
+                   "The later half of sign-up months.", cohort_fig(cohort.iloc[mid:]), 480)
     with c2:
-        chart_card("EARLIER", "#999", "Earlier cohorts",
-                   "Jan 2015 through the midpoint.", cohort_fig(cohort.iloc[:mid]), 480)
+        chart_card("EARLIER", MUTED, "Earlier cohorts",
+                   "January 2015 to the midpoint.", cohort_fig(cohort.iloc[:mid]), 480)
 
     st.write("")
     m1, m2, m3 = st.columns(3)
-    m1.metric("Average Retention",  f"{avg_r:.1f}%")
-    m2.metric("Best Cohort", str(best['cohort']), f"{best['retention_rate']:.1f}%")
-    m3.metric("Cohorts Tracked", str(len(cohort)))
+    m1.metric("Average retention", f"{avg_r:.1f}%")
+    m2.metric("Best cohort", str(best['cohort']), f"{best['retention_rate']:.1f}%")
+    m3.metric("Cohorts tracked", str(len(cohort)))
 
     st.markdown(f"""
     <div class='insight'>
-      <b>So what?</b> Retention hasn't meaningfully declined over time —
-      this isn't a product deterioration story. The variation between cohorts
-      tracks more closely with which acquisition channels were active in those
-      months, explored in the Churn Drivers tab.
+      <b>So what?</b> Retention hasn't meaningfully declined across cohorts, so this isn't a
+      story about the product getting worse. That points the investigation back to how people pay.
     </div>
     """, unsafe_allow_html=True)
 
-with tab2:
-    st.markdown(f"""
-    <div class='insight insight-amber' style='margin-bottom:28px'>
-      <b>Before the charts:</b> We tested whether churned users simply stopped
-      listening before they left. They didn't. Listening time, completion rate,
-      and active days are nearly identical between churned and retained users.
-      <b>Every dominant churn signal is about payments — not product engagement.</b>
-    </div>
-    """, unsafe_allow_html=True)
-
-    col1, col2 = st.columns(2)
-    with col1:
-        auto_fig = px.bar(auto_df, x="status", y="churn_pct", color="status",
-                    color_discrete_map={"Auto-renew ON":GREEN,"Auto-renew OFF":RED},
-                    text=auto_df['churn_pct'].apply(lambda x: f"{x}%"),
-                    labels={"churn_pct":"Churn Rate (%)","status":""})
-        auto_fig.update_traces(textposition='outside',
-                         textfont=dict(size=16, color=WHITE), width=0.45)
-        auto_fig.update_layout(showlegend=False, yaxis_range=[0,38])
-        chart_card("STRONGEST SIGNAL", RED,
-            "Auto-renew OFF users churn at 8× the rate of ON",
-            "The single strongest predictor in the model. Users who opted out churn far more — regardless of how much they listen.",
-            auto_fig)
-
-    with col2:
-        plan_df['label'] = plan_df['payment_plan_days'].apply(
-            lambda x: {7:"7 days",30:"30 days",90:"3 months",
-                       180:"6 months",365:"1 year"}.get(int(x),f"{int(x)}d"))
-        plan_fig = px.bar(plan_df, x="label", y="churn_pct", color="churn_pct",
-                    color_continuous_scale=[[0,GREEN],[0.5,AMBER],[1,RED]],
-                    text=plan_df['churn_pct'].apply(lambda x: f"{x}%"),
-                    labels={"churn_pct":"Churn Rate (%)","label":""})
-        plan_fig.update_traces(textposition='outside', textfont=dict(size=14, color=WHITE))
-        plan_fig.update_layout(coloraxis_showscale=False)
-        chart_card("PLAN STRUCTURE", AMBER,
-            "Longer discounted plans attract less loyal subscribers",
-            "Counter-intuitive but consistent: users on longer plans churn more. Likely acquired via heavy discounts — low entry price, low commitment.",
-            plan_fig)
-
-    st.write("")
-    col3, col4 = st.columns(2)
-    with col3:
-        img_card("MODEL EXPLAINABILITY", GREEN,
-            "Payment features dominate, listening features don't",
-            ASSETS_PATH/"shap_importance.png",
-            "Payment method, plan price, and registration channel dominate. "
-            "Listening metrics are near the bottom — confirming churn is not an engagement problem.")
-    with col4:
-        reg_df['ch'] = reg_df['registered_via'].apply(lambda x: f"Ch {int(x)}")
-        reg_fig = px.bar(reg_df, x="ch", y="churn_pct", color="churn_pct",
-                    color_continuous_scale=[[0,GREEN],[0.5,AMBER],[1,RED]],
-                    text=reg_df['churn_pct'].apply(lambda x: f"{x:.1f}%"),
-                    labels={"churn_pct":"Churn (%)","ch":""})
-        reg_fig.update_traces(textposition='outside', textfont=dict(size=12, color=WHITE))
-        reg_fig.update_layout(coloraxis_showscale=False)
-        chart_card("ACQUISITION", BLUE,
-            "Channel predicts churn — 5× gap between best and worst",
-            "Channel IDs are anonymised sign-up pathways. KKBox hasn't published the mapping — but the churn rate difference is real and consistent.",
-            reg_fig)
-
+# ================================================================ TAB 3: risk
 with tab3:
-    tier_c = {"High Risk":RED,"Medium Risk":AMBER,"Low Risk":GREEN}
+    tier_c = {"High Risk": RED, "Medium Risk": AMBER, "Low Risk": GREEN}
 
     st.markdown(f"""
-    <div class='viz-card-hed' style='font-size:18px;margin-bottom:8px'>
-      Every user scored by churn probability — three tiers, one clear priority
-    </div>
-    <div style='font-size:14px;color:{BODY};line-height:1.8;margin-bottom:24px'>
-      The XGBoost model assigns each user a churn probability between 0 and 1.
-      High Risk users have the highest probability of churning and the most
-      revenue at stake — they are the immediate intervention target.
+    <div class='section-hed'>Every scored user sorted into three tiers, with one clear priority</div>
+    <div class='section-dek'>
+      The model gives each of the {n_scored:,} users in the hold-out set a churn probability.
+      High Risk users are the most likely to leave and carry the most revenue at stake,
+      so they are where a retention budget should go first.
     </div>
     """, unsafe_allow_html=True)
 
     r1, r2, r3 = st.columns(3)
-    for col, (_, row) in zip([r1,r2,r3], risk_df.iterrows()):
+    for col, (_, row) in zip([r1, r2, r3], risk_df.iterrows()):
         clr = tier_c.get(row['risk_tier'], MUTED)
         with col:
             st.markdown(f"""
@@ -421,34 +529,33 @@ with tab3:
     st.write("")
     rc1, rc2 = st.columns(2)
     tiers = risk_df['risk_tier'].tolist()
-    clrs  = [tier_c.get(t,MUTED) for t in tiers]
+    clrs  = [tier_c.get(t, MUTED) for t in tiers]
 
     with rc1:
         f5 = go.Figure(go.Bar(
             x=tiers, y=risk_df['users'].tolist(), marker_color=clrs,
             text=[f"{v:,}" for v in risk_df['users'].tolist()],
-            textposition='outside', textfont=dict(color=WHITE, size=13)))
+            textposition='outside', textfont=dict(color=WHITE, size=13),
+            hovertemplate="%{x}: %{y:,} users<extra></extra>"))
         f5.update_layout(yaxis_title="Users", showlegend=False)
         chart_card("DISTRIBUTION", GREEN, "Users per risk tier",
-            "High risk users are the minority but carry the most intervention value per user.", f5)
+            "High Risk users are a small slice of the base.", f5)
 
     with rc2:
         f6 = go.Figure(go.Bar(
             x=tiers, y=risk_df['rev_at_risk'].tolist(), marker_color=clrs,
             text=[f"TWD {v:,.0f}" for v in risk_df['rev_at_risk'].tolist()],
-            textposition='outside', textfont=dict(color=WHITE, size=12)))
+            textposition='outside', textfont=dict(color=WHITE, size=12),
+            hovertemplate="%{x}: TWD %{y:,.0f}<extra></extra>"))
         f6.update_layout(yaxis_title="TWD", showlegend=False)
         chart_card("IMPACT", AMBER, "Revenue at risk per tier",
-            "High risk users account for the largest share of revenue at stake despite being the smallest group.", f6)
+            "...but they hold the largest share of revenue at stake.", f6)
 
     st.markdown(f"""
     <div class='insight'>
-      <b>Intervention priority:</b> The 19,869 high-risk users represent the
-      highest concentration of churn probability AND the highest revenue at stake.
-      A targeted auto-renew incentive on this group costs
-      <b style='color:{AMBER}'>TWD {roi['cost_of_campaign']:,.0f}</b> and protects
-      <b style='color:{GREEN}'>TWD {roi['revenue_saved']:,.0f}</b> —
-      a <b style='color:{GREEN}'>{roi['roi_ratio']}x return.</b>
+      <b>Where to act first:</b> the {n_high:,} High Risk users combine the highest churn probability
+      with the most revenue at stake. Head to the <b>Campaign simulator</b> tab to see what
+      a retention offer aimed at them would cost and return.
     </div>
     """, unsafe_allow_html=True)
 
@@ -472,12 +579,10 @@ with tab3:
     """)
 
     st.markdown(f"""
-    <div class='viz-card-hed' style='font-size:18px;margin:28px 0 8px'>
-      Top 10 users to prioritize, per risk tier
-    </div>
-    <div style='font-size:14px;color:{BODY};line-height:1.8;margin-bottom:16px'>
-      Ranked within each tier by revenue at stake (churn probability × plan price) —
-      this is the actual intervention shortlist, not just the risk-tier bucket.
+    <div class='section-hed' style='margin-top:28px'>Top 10 users to prioritise, per tier</div>
+    <div class='section-dek'>
+      Ranked within each tier by revenue at stake (churn probability × plan price).
+      This is the actual intervention shortlist, not just the tier bucket.
     </div>
     """, unsafe_allow_html=True)
 
@@ -488,123 +593,114 @@ with tab3:
                 'plan_list_price': 'TWD {:.0f}',
                 'revenue_at_stake': 'TWD {:.0f}'
             }),
-            use_container_width=True, hide_index=True
+            width="stretch", hide_index=True
         )
 
+# ================================================================ TAB 4: simulator
 with tab4:
     st.markdown(f"""
-    <div style='background:{CARD};border:1px solid {BORDER};border-radius:14px;
-                padding:28px 32px;margin-bottom:32px'>
-      <div class='eyebrow'>Model Performance Summary</div>
-      <div style='display:grid;grid-template-columns:repeat(4,1fr);
-                  gap:24px;margin-top:16px'>
-        <div style='border-left:3px solid {GREEN};padding-left:16px'>
-          <div class='stat-label'>Hold-out AUC</div>
-          <div style='font-size:30px;font-weight:700;color:{GREEN}'>0.9876</div>
-          <div style='font-size:12px;color:{BODY};margin-top:4px'>on unseen test data</div>
-        </div>
-        <div style='border-left:3px solid {GREEN};padding-left:16px'>
-          <div class='stat-label'>5-Fold CV Mean</div>
-          <div style='font-size:30px;font-weight:700;color:{GREEN}'>0.9875</div>
-          <div style='font-size:12px;color:{BODY};margin-top:4px'>confirms no overfitting</div>
-        </div>
-        <div style='border-left:3px solid {BLUE};padding-left:16px'>
-          <div class='stat-label'>CV Std Deviation</div>
-          <div style='font-size:30px;font-weight:700;color:{WHITE}'>±0.0003</div>
-          <div style='font-size:12px;color:{BODY};margin-top:4px'>extremely stable</div>
-        </div>
-        <div style='border-left:3px solid {AMBER};padding-left:16px'>
-          <div class='stat-label'>Optimal F1 Score</div>
-          <div style='font-size:30px;font-weight:700;color:{WHITE}'>0.849</div>
-          <div style='font-size:12px;color:{BODY};margin-top:4px'>at threshold 0.85</div>
-        </div>
-      </div>
+    <div class='eyebrow' style='color:{GREEN}'>Campaign simulator</div>
+    <div class='section-hed' style='font-size:22px'>Would an auto-renew offer pay for itself?</div>
+    <div class='section-dek'>
+      The offer: a discount for anyone who switches auto-renew on. Pick who receives it,
+      how generous it is, and how many would-be churners you expect to take it.
+      Defaults match the original analysis: High Risk users, 10% off, 30% uptake.
     </div>
     """, unsafe_allow_html=True)
 
-    mv1, mv2 = st.columns(2)
-    with mv1:
-        img_card("BASELINE COMPARISON", BLUE,
-            "XGBoost beats Logistic Regression by +0.085 AUC",
-            ASSETS_PATH/"model_comparison.png",
-            "LR baseline: AUC 0.9028. XGBoost: 0.9876. The gap confirms "
-            "subscription churn has non-linear patterns a linear model can't capture.")
-    with mv2:
-        img_card("CROSS-VALIDATION", GREEN,
-            "AUC 0.9876 is stable across all 5 folds",
-            ASSETS_PATH/"cross_validation.png",
-            "All 5 folds score between 0.9871 and 0.9880 — a range of just 0.0009. "
-            "Not a lucky train/test split. The model generalises.")
+    with st.container(border=True):
+        cA, cB, cC = st.columns([1.3, 1, 1], gap="large")
+        with cA:
+            tiers_sel = st.multiselect("Who receives the offer",
+                                       ["High Risk", "Medium Risk", "Low Risk"],
+                                       default=["High Risk"])
+        with cB:
+            disc = st.slider("Discount for switching auto-renew on", 5, 30, 10, step=1, format="%d%%")
+        with cC:
+            conv = st.slider("Would-be churners who accept", 5, 60, 30, step=5, format="%d%%")
 
-    st.write("")
-    mv3, mv4 = st.columns(2)
-    with mv3:
-        img_card("THRESHOLD TUNING", AMBER,
-            "Default threshold isn't optimal for churn",
-            ASSETS_PATH/"threshold_analysis.png",
-            "Default 0.5: F1 0.729. Optimal 0.85: F1 0.849. "
-            "For churn, missing a churner costs more than a false alarm.")
-    with mv4:
-        img_card("FEATURE DIRECTION", ACCENT,
-            "SHAP beeswarm — how each feature pushes predictions",
-            ASSETS_PATH/"shap_beeswarm.png",
-            "Each dot = one user. Red = high value, blue = low. "
-            "Right = pushes toward churn. Auto-renew dominates the right side.")
+    sel = tier_agg[tier_agg.risk_tier.isin(tiers_sel)]
+    if sel.empty:
+        st.info("Pick at least one tier to run the numbers.")
+    else:
+        n_t        = int(sel.n.sum())
+        cost       = float((sel.n * sel.price).sum() * disc / 100)
+        users_kept = float((sel.n * sel.p).sum() * conv / 100)
+        saved      = float((sel.n * sel.p * sel.price).sum() * conv / 100)
+        roi_x      = saved / cost if cost else 0
+        who        = " + ".join(t.replace(" Risk", "") for t in tiers_sel) + " Risk"
+        verdict_c  = GREEN if roi_x >= 1 else RED
+        verdict    = (f"That's <span style='color:{GREEN}'>{roi_x:.1f}× back</span> on every TWD spent."
+                      if roi_x >= 1 else
+                      f"That <span style='color:{RED}'>loses money</span>: only {roi_x:.2f}× back per TWD spent.")
 
-    st.write("")
-    img_card("DEEP DIVE", RED,
-        "Auto-renew OFF sharply increases predicted churn",
-        ASSETS_PATH/"shap_dependence_autorenew.png",
-        "Auto-renew is binary: 0 = OFF, 1 = ON. Users with auto-renew OFF "
-        "show SHAP values between 0.5 and 3.5 — the model pushes their churn "
-        "probability significantly higher. The most actionable single feature in the model.")
+        st.markdown(f"""
+        <div class='hero' style='background:{CARD};border:1px solid {BORDER};
+                    border-top:3px solid {verdict_c};border-radius:14px;
+                    padding:30px 36px;margin:18px 0 20px'>
+          <div class='sim-hed'>
+            Offering <span style='color:{AMBER}'>{disc}% off</span> to
+            <span style='color:{WHITE}'>{n_t:,} {who}</span> users costs
+            <span style='color:{AMBER}'>TWD {cost:,.0f}</span> and keeps an estimated
+            <span style='color:{GREEN}'>{users_kept:,.0f} subscribers</span>,
+            protecting <span style='color:{GREEN}'>TWD {saved:,.0f}</span>. {verdict}
+          </div>
+        </div>
+        """, unsafe_allow_html=True)
 
-with tab5:
-    st.markdown(f"""
-    <div style='background:{CARD};border:1px solid {BORDER};
-                border-top:3px solid {GREEN};border-radius:14px;
-                padding:34px 38px;margin-bottom:28px'>
-      <div class='eyebrow' style='color:{GREEN}'>Business Case · Modelled ROI</div>
-      <div style='font-family:Playfair Display,serif;font-size:1.75rem;
-                  font-weight:700;color:{WHITE};margin:14px 0 12px;line-height:1.35'>
-        A 10% auto-renew incentive to
-        <span style='color:{GREEN}'>{int(roi['n_high_risk']):,} high-risk users</span>
-        costs <span style='color:{AMBER}'>TWD {roi['cost_of_campaign']:,.0f}</span>
-        and protects
-        <span style='color:{GREEN}'>TWD {roi['revenue_saved']:,.0f}</span>
-        in subscriber revenue.
-      </div>
-      <div style='font-size:14px;color:{BODY};line-height:1.8;max-width:720px'>
-        Assumes 30% conversion rate — conservative, based on the 8× churn rate
-        difference between auto-renew OFF (30.6%) and ON (3.8%) users.
-        Every TWD 1 spent on the campaign saves
-        <b style='color:{GREEN}'>TWD {roi['roi_ratio']}</b> in retained revenue.
-      </div>
-    </div>
-    """, unsafe_allow_html=True)
+        s1, s2, s3, s4 = st.columns(4)
+        s1.metric("Users targeted", f"{n_t:,}")
+        s2.metric("Campaign cost", f"TWD {cost:,.0f}")
+        s3.metric("Revenue protected", f"TWD {saved:,.0f}")
+        s4.metric("Return on spend", f"{roi_x:.1f}×",
+                  delta="pays for itself" if roi_x >= 1 else "loses money",
+                  delta_color="normal" if roi_x >= 1 else "inverse")
 
-    roi1, roi2, roi3, roi4 = st.columns(4)
-    roi1.metric("High-Risk Users",    f"{int(roi['n_high_risk']):,}")
-    roi2.metric("Revenue at Risk",    f"TWD {roi['revenue_at_risk']:,.0f}")
-    roi3.metric("Campaign Cost",      f"TWD {roi['cost_of_campaign']:,.0f}")
-    roi4.metric("Est. Revenue Saved", f"TWD {roi['revenue_saved']:,.0f}",
-                delta=f"{roi['roi_ratio']}x ROI")
+        st.write("")
+        order = ["High Risk", "Medium Risk", "Low Risk"]
+        ta = tier_agg.set_index("risk_tier").reindex(order).dropna()
+        roi_by_tier = ta["p"] * (conv / 100) / (disc / 100)
+        rf = go.Figure(go.Bar(
+            x=roi_by_tier.index.tolist(), y=roi_by_tier.values,
+            marker_color=[RED if t in tiers_sel else BORDER for t in roi_by_tier.index],
+            text=[f"{v:.1f}×" if v >= 0.1 else f"{v:.2f}×" for v in roi_by_tier.values],
+            textposition="outside", textfont=dict(color=WHITE, size=13),
+            hovertemplate="%{x}: %{y:.2f}× return<extra></extra>"))
+        rf.add_hline(y=1, line_dash="dash", line_color=MUTED,
+                     annotation_text="break-even", annotation_font_color=MUTED)
+        rf.update_layout(showlegend=False, yaxis_title="Return per TWD spent",
+                         yaxis_range=[0, max(roi_by_tier.max() * 1.25, 1.3)])
+        chart_card("WHY TARGETING MATTERS", GREEN,
+            "Return per tier at these settings",
+            "Price cancels out, so each tier's return is simply its churn probability × uptake ÷ discount. "
+            "The same offer that pays off for High Risk users loses money on Low Risk ones, because most of "
+            "them were never going to leave. Highlighted bars are the tiers you selected.",
+            rf, 320)
+
+        st.markdown(f"""
+        <div class='sim-note' style='margin-top:14px'>
+          Assumptions: everyone targeted gets the discount on one plan period; uptake applies to users
+          who would otherwise churn; saved revenue counts one plan period per retained user.
+          Uptake is the biggest unknown here. A real rollout would test it on a small holdout group first,
+          with churn among non-targeted users as the guardrail metric.
+        </div>
+        """, unsafe_allow_html=True)
 
     st.divider()
 
     recs = [
-        {"num":"01","color":GREEN,"label":"HIGHEST IMPACT",
-         "title":"Give users a reason to turn auto-renew on",
-         "finding":"Auto-renew OFF is the single strongest churn predictor in the model — 8× higher churn rate than auto-renew ON. These users listen just as much. They just haven't committed to renewing.",
-         "action":f"Offer a permanent 10% discount to any user who enables auto-renew. Cost of discount is far lower than cost of reacquisition. Targeting {int(roi['n_high_risk']):,} high-risk users first yields a modelled {roi['roi_ratio']}x ROI."},
-        {"num":"02","color":AMBER,"label":"REVENUE PROTECTION",
-         "title":"Stop using deep discounts to sell long plans",
-         "finding":"Churned users paid TWD 383 on average vs TWD 129 for retained users. Long discounted plans attract subscribers who cancel once the deal expires — not loyal users.",
-         "action":"Redirect discount budget from long-plan acquisition to loyalty rewards for existing monthly subscribers. Acquire fewer users but retain them longer."},
-        {"num":"03","color":BLUE,"label":"ACQUISITION QUALITY",
-         "title":"Audit and reallocate acquisition channel spend",
-         "finding":"The highest-churn acquisition channel produces users who churn at over 5× the rate of the lowest-churn channel. Acquisition channel is the third strongest churn predictor in SHAP.",
-         "action":"Identify which channels map to the high-churn IDs and reduce spend there. Reinvest in channels that produce loyal users — even if the upfront volume is lower."},
+        {"num": "01", "color": GREEN, "label": "HIGHEST IMPACT",
+         "title": "Give users a reason to turn auto-renew on",
+         "finding": f"Users with auto-renew off churn at {gap_x:.0f}× the rate of those with it on, despite listening just as much. They haven't stopped valuing the product; they just haven't committed to renewing.",
+         "action": f"Offer a discount for switching auto-renew on, starting with the {n_high:,} High Risk users. At 10% off and 30% uptake, the model estimates a {roi['roi_ratio']}× return. Test the uptake assumption before scaling."},
+        {"num": "02", "color": AMBER, "label": "RENEWAL MOMENT",
+         "title": "Treat plan expiry as a moment to win users back",
+         "finding": "Churn varies sharply by plan length, and expiry timing is one of the model's strongest signals. For users paying upfront, renewal is a single, deliberate decision rather than a routine charge.",
+         "action": "Test a nudge shortly before long plans expire: offer auto-renew or a monthly option instead of letting the plan simply run out."},
+        {"num": "03", "color": BLUE, "label": "ACQUISITION QUALITY",
+         "title": "Audit acquisition channel spend",
+         "finding": "The worst sign-up channel produces users who churn many times more often than the best one, and channel ranks among the model's meaningful predictors.",
+         "action": "Map the anonymised channel IDs to real channels, shift spend away from high-churn ones, and reinvest where users stay, even if upfront volume is lower."},
     ]
 
     for rec in recs:
@@ -615,7 +711,7 @@ with tab5:
                     padding:26px 30px;margin-bottom:14px'>
           <div style='display:flex;align-items:baseline;gap:18px;margin-bottom:14px'>
             <span style='font-size:26px;font-weight:700;
-                         color:{rec["color"]};opacity:0.2'>{rec["num"]}</span>
+                         color:{rec["color"]};opacity:0.35'>{rec["num"]}</span>
             <div>
               <div style='font-size:11px;font-weight:700;text-transform:uppercase;
                           letter-spacing:0.14em;color:{rec["color"]};
@@ -635,11 +731,113 @@ with tab5:
         </div>
         """, unsafe_allow_html=True)
 
-    st.divider()
+# ================================================================ TAB 5: model
+with tab5:
+    tc = threshold_curve()
+    best_row = tc.loc[tc.f1.idxmax()]
+    f1_default = float(tc.loc[(tc.threshold - 0.5).abs().idxmin(), "f1"])
+
     st.markdown(f"""
-    <p style='font-size:12px;color:{MUTED};text-align:center;line-height:2.2'>
-    WSDM KKBox Churn Prediction Dataset &nbsp;·&nbsp;
-    XGBoost AUC 0.9876 · 5-fold CV 0.9875 ±0.0003 &nbsp;·&nbsp;
-    Built by Akanksha Nayak
-    </p>
+    <div style='background:{CARD};border:1px solid {BORDER};border-radius:14px;
+                padding:28px 32px;margin-bottom:32px'>
+      <div class='eyebrow'>Model performance summary</div>
+      <div class='stat-row' style='margin-top:16px'>
+        <div class='stat-item' style='border-color:{GREEN}'>
+          <div class='stat-label'>Hold-out AUC</div>
+          <div class='stat-value' style='color:{GREEN}'>0.9876</div>
+          <div style='font-size:12px;color:{BODY};margin-top:4px'>on unseen test data</div>
+        </div>
+        <div class='stat-item' style='border-color:{GREEN}'>
+          <div class='stat-label'>5-fold CV mean</div>
+          <div class='stat-value' style='color:{GREEN}'>0.9875</div>
+          <div style='font-size:12px;color:{BODY};margin-top:4px'>no sign of overfitting</div>
+        </div>
+        <div class='stat-item' style='border-color:{BLUE}'>
+          <div class='stat-label'>CV std deviation</div>
+          <div class='stat-value'>±0.0003</div>
+          <div style='font-size:12px;color:{BODY};margin-top:4px'>very stable across folds</div>
+        </div>
+        <div class='stat-item' style='border-color:{AMBER}'>
+          <div class='stat-label'>Best F1 score</div>
+          <div class='stat-value'>{best_row.f1:.3f}</div>
+          <div style='font-size:12px;color:{BODY};margin-top:4px'>at threshold {best_row.threshold:.2f}</div>
+        </div>
+      </div>
+    </div>
     """, unsafe_allow_html=True)
+
+    mv1, mv2 = st.columns(2)
+    with mv1:
+        mc = go.Figure(go.Bar(
+            x=["Logistic Regression (baseline)", "XGBoost"], y=[0.9028, 0.9876],
+            marker_color=[MUTED, GREEN], width=0.45,
+            text=["0.9028", "0.9876"], textposition="outside",
+            textfont=dict(color=WHITE, size=14),
+            hovertemplate="%{x}: AUC %{y:.4f}<extra></extra>"))
+        mc.add_hline(y=0.5, line_dash="dot", line_color=RED,
+                     annotation_text="random guessing", annotation_font_color=RED)
+        mc.update_layout(yaxis_title="ROC-AUC", yaxis_range=[0.4, 1.05], showlegend=False)
+        chart_card("BASELINE COMPARISON", BLUE,
+            "XGBoost beats the baseline by +0.085 AUC",
+            "A simple linear model already does well (0.9028). The jump to 0.9876 shows there are "
+            "non-linear patterns in subscription behaviour that justify the more complex model.",
+            mc)
+    with mv2:
+        folds = [0.9873, 0.9875, 0.9873, 0.9871, 0.9880]
+        cvf = go.Figure(go.Bar(
+            x=[f"Fold {i}" for i in range(1, 6)], y=folds,
+            marker_color=[GREEN if s >= np.mean(folds) else AMBER for s in folds], width=0.45,
+            text=[f"{s:.4f}" for s in folds], textposition="outside",
+            textfont=dict(color=WHITE, size=12),
+            hovertemplate="%{x}: AUC %{y:.4f}<extra></extra>"))
+        cvf.add_hline(y=float(np.mean(folds)), line_dash="dash", line_color=MUTED,
+                      annotation_text=f"mean {np.mean(folds):.4f}", annotation_font_color=MUTED)
+        cvf.update_layout(yaxis_title="ROC-AUC (zoomed)", yaxis_range=[0.985, 0.9895], showlegend=False)
+        chart_card("CROSS-VALIDATION", GREEN,
+            "The score holds across all 5 folds",
+            "Every fold lands between 0.9871 and 0.9880. The axis is zoomed in to make the "
+            "differences visible at all; this isn't a lucky train/test split.",
+            cvf)
+
+    st.write("")
+    mv3, mv4 = st.columns(2)
+    with mv3:
+        th = go.Figure()
+        th.add_scatter(x=tc.threshold, y=tc.f1, mode="lines", name="F1",
+                       line=dict(color=ACCENT, width=3),
+                       hovertemplate="threshold %{x:.2f}: F1 %{y:.3f}<extra></extra>")
+        th.add_scatter(x=tc.threshold, y=tc.precision, mode="lines", name="Precision",
+                       line=dict(color=BLUE, width=1.5, dash="dot"),
+                       hovertemplate="threshold %{x:.2f}: precision %{y:.3f}<extra></extra>")
+        th.add_scatter(x=tc.threshold, y=tc.recall, mode="lines", name="Recall",
+                       line=dict(color=AMBER, width=1.5, dash="dot"),
+                       hovertemplate="threshold %{x:.2f}: recall %{y:.3f}<extra></extra>")
+        th.add_vline(x=0.5, line_dash="dash", line_color=MUTED,
+                     annotation_text="default 0.5", annotation_font_color=MUTED)
+        th.add_vline(x=float(best_row.threshold), line_dash="dash", line_color=GREEN,
+                     annotation_text=f"best {best_row.threshold:.2f}", annotation_font_color=GREEN,
+                     annotation_position="top left")
+        th.update_layout(xaxis_title="Classification threshold", yaxis_range=[0, 1.05],
+                         legend=dict(orientation="h", y=-0.25))
+        chart_card("THRESHOLD TUNING", AMBER,
+            "The default threshold leaves performance on the table",
+            f"At 0.5, F1 is {f1_default:.3f}. Raising the threshold to {best_row.threshold:.2f} "
+            f"lifts it to {best_row.f1:.3f} by cutting false alarms while still catching most churners. "
+            "Recomputed live from the hold-out predictions.",
+            th)
+    with mv4:
+        img_card("DEEP DIVE", RED,
+            "How auto-renew moves individual predictions",
+            ASSETS_PATH / "shap_dependence_autorenew.png",
+            "Auto-renew is binary: 0 is off, 1 is on. With it off, the model consistently pushes "
+            "churn probability up, which is why it's the most actionable single lever.")
+
+# ---------------------------------------------------------------- footer
+st.divider()
+st.markdown(f"""
+<p style='font-size:12px;color:{MUTED};text-align:center;line-height:2.2'>
+WSDM KKBox Churn Prediction Dataset &nbsp;·&nbsp;
+XGBoost AUC 0.9876 · 5-fold CV 0.9875 ±0.0003 &nbsp;·&nbsp;
+Built by Akanksha Nayak
+</p>
+""", unsafe_allow_html=True)
